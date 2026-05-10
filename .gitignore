@@ -2,3 +2,11 @@
 .claude
 skills-lock.json
 .serena
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Env
+.env

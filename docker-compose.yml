@@ -1,0 +1,46 @@
+services:
+  mysql:
+    image: mysql:8
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./backend/db/seed.sql:/docker-entrypoint-initdb.d/seed.sql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build: ./backend
+    env_file: .env
+    ports:
+      - "8000:8000"
+    depends_on:
+      mysql:
+        condition: service_healthy
+
+  # Uncomment to use a self-hosted Ollama instance instead of OpenRouter.
+  # Set LLM_PROVIDER_URL=http://ollama:11434/v1 and DEFAULT_MODEL to your
+  # desired model (e.g. llama3.2, qwen2.5) in your .env file.
+  #
+  # ollama:
+  #   image: ollama/ollama
+  #   extra_hosts:
+  #     - "host.docker.internal:host-gateway"
+  #   # Replace with the actual IP of your remote Ollama server if not local:
+  #   # network_mode: "host"
+  #   ports:
+  #     - "11434:11434"
+  #   volumes:
+  #     - ollama_data:/root/.ollama
+
+volumes:
+  mysql_data:
+  # ollama_data:

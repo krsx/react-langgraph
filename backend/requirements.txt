@@ -1,0 +1,6 @@
+langgraph
+langchain-openai
+fastapi
+uvicorn[standard]
+mysql-connector-python
+python-dotenv
