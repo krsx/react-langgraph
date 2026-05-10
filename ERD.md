@@ -41,15 +41,34 @@ Source: `project-spec.md` §5 + PRD (Issue #1)
 | value | TEXT | |
 | created_at | TIMESTAMP | DEFAULT CURRENT_TIMESTAMP |
 
+### sessions
+| Column | Type | Constraints |
+|--------|------|-------------|
+| thread_id | VARCHAR(100) | PRIMARY KEY |
+| customer_id | INT | FK → customers.customer_id |
+| created_at | TIMESTAMP | DEFAULT CURRENT_TIMESTAMP |
+| ended_at | TIMESTAMP | NULL |
+
+### session_messages
+| Column | Type | Constraints |
+|--------|------|-------------|
+| message_id | INT | PRIMARY KEY AUTO_INCREMENT |
+| thread_id | VARCHAR(100) | FK → sessions.thread_id |
+| role | VARCHAR(20) | `user`, `assistant`, or `tool` |
+| content | TEXT | |
+| created_at | TIMESTAMP | DEFAULT CURRENT_TIMESTAMP |
+
 ---
 
 ## Relationships
 
 ```
-customers ──< orders         (one customer → many orders)
-customers ──< complaints     (one customer → many complaints)
-customers ──< customer_memory(one customer → many memory entries)
-orders    ──< complaints     (one order → many complaints)
+customers ──< orders          (one customer → many orders)
+customers ──< complaints      (one customer → many complaints)
+customers ──< customer_memory (one customer → many memory entries)
+customers ──< sessions        (one customer → many sessions)
+orders    ──< complaints      (one order → many complaints)
+sessions  ──< session_messages(one session → many messages)
 ```
 
 ---
@@ -87,11 +106,26 @@ erDiagram
         text value
         timestamp created_at
     }
+    sessions {
+        varchar thread_id PK
+        int customer_id FK
+        timestamp created_at
+        timestamp ended_at
+    }
+    session_messages {
+        int message_id PK
+        varchar thread_id FK
+        varchar role
+        text content
+        timestamp created_at
+    }
 
     customers ||--o{ orders : "places"
     customers ||--o{ complaints : "files"
     customers ||--o{ customer_memory : "has"
+    customers ||--o{ sessions : "starts"
     orders ||--o{ complaints : "subject of"
+    sessions ||--o{ session_messages : "contains"
 ```
 
 ---
@@ -113,6 +147,6 @@ erDiagram
 
 ## Gaps / Open Questions
 
-1. **`sessions` and `session_messages` tables** — referenced in the PRD (Issue #1) for conversation history logging, but not defined in `project-spec.md` §5. Schema needs to be added.
+1. **`sessions.thread_id` type** — using `VARCHAR(100)` assuming server-generated UUIDs; adjust if LangGraph's SqliteSaver uses a different format.
 2. **`orders.status` enum** — valid values are implied by the tools (`pending`, `delivered`, `refund_requested`) but not formally enumerated. Consider using an `ENUM` type.
 3. **Foreign key constraints** — the spec omits explicit `FOREIGN KEY` declarations. Add them when creating the schema if referential integrity is desired.
