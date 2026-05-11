@@ -39,7 +39,7 @@ def test_graph_invoke_returns_agent_state_shaped_dict():
 
     result = graph.invoke(
         {"messages": [HumanMessage(content="hello")], "customer_id": 1},
-        config={"configurable": {"thread_id": "test-thread-1"}, "recursion_limit": 10},
+        config={"configurable": {"thread_id": "test-thread-1", "customer_id": 1}, "recursion_limit": 10},
     )
 
     assert "messages" in result
