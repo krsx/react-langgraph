@@ -41,6 +41,8 @@ Source: `project-spec.md` §5 + PRD (Issue #1)
 | value | TEXT | |
 | created_at | TIMESTAMP | DEFAULT CURRENT_TIMESTAMP |
 
+**Unique constraint:** `UNIQUE KEY uq_customer_key (customer_id, key(255))` — enables upsert via `INSERT ... ON DUPLICATE KEY UPDATE`.
+
 ### sessions
 | Column | Type | Constraints |
 |--------|------|-------------|

@@ -6,7 +6,7 @@ from langgraph.prebuilt import ToolNode, tools_condition
 from graph.state import AgentState
 from graph.memory_loader import memory_loader
 from graph.planner import planner
-from graph.tools import order_lookup, customer_profile
+from graph.tools import order_lookup, customer_profile, refund, complaint_logger, memory_tool
 from graph.verifier import verifier
 from graph.memory_update import memory_update
 
@@ -14,7 +14,7 @@ builder = StateGraph(AgentState)
 
 builder.add_node("memory_loader", memory_loader)
 builder.add_node("planner", planner)
-builder.add_node("tools", ToolNode([order_lookup, customer_profile]))
+builder.add_node("tools", ToolNode([order_lookup, customer_profile, refund, complaint_logger, memory_tool]))
 builder.add_node("verifier", verifier)
 builder.add_node("memory_update", memory_update)
 

@@ -29,10 +29,11 @@ CREATE TABLE IF NOT EXISTS complaints (
 CREATE TABLE IF NOT EXISTS customer_memory (
     id          INT AUTO_INCREMENT PRIMARY KEY,
     customer_id INT,
-    `key`       TEXT,
+    `key`       VARCHAR(255),
     value       TEXT,
     created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (customer_id) REFERENCES customers(customer_id)
+    FOREIGN KEY (customer_id) REFERENCES customers(customer_id),
+    UNIQUE KEY uq_customer_key (customer_id, `key`)
 );
 
 CREATE TABLE IF NOT EXISTS sessions (
@@ -75,6 +76,6 @@ INSERT INTO orders (order_id, customer_id, product_name, status, order_date, del
 -- test 8:  long-term memory read — prior issues
 -- test 10: personalization — repeated late delivery pattern
 INSERT INTO customer_memory (customer_id, `key`, value) VALUES
-    (1, 'past_issue',       'Order 1001 was delivered 3 days late in March 2026'),
-    (1, 'past_issue',       'Order 12345 shipping was delayed due to warehouse backlog'),
+    (1, 'late_delivery_1',  'Order 1001 was delivered 3 days late in March 2026'),
+    (1, 'late_delivery_2',  'Order 12345 shipping was delayed due to warehouse backlog'),
     (1, 'complaint_count',  '2');

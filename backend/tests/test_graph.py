@@ -51,28 +51,16 @@ def test_graph_invoke_returns_agent_state_shaped_dict():
 
 # ── Cycle 4: tools.py exposes all 5 tool class stubs ────────────────────────
 
-def test_tools_module_exposes_all_tools():
+def test_tools_module_exposes_all_five_tools():
     from graph import tools
 
-    # order_lookup and customer_profile are now real @tool functions
-    assert hasattr(tools, "order_lookup")
-    assert hasattr(tools, "customer_profile")
-    # remaining three are still class stubs pending future issues
-    assert hasattr(tools, "RefundTool")
-    assert hasattr(tools, "ComplaintLoggerTool")
-    assert hasattr(tools, "MemoryTool")
+    for name in ("order_lookup", "customer_profile", "refund", "complaint_logger", "memory_tool"):
+        assert hasattr(tools, name), f"tools module must expose '{name}'"
 
 
-def test_tool_stubs_have_docstrings():
-    from graph.tools import RefundTool, ComplaintLoggerTool, MemoryTool
-
-    for cls in (RefundTool, ComplaintLoggerTool, MemoryTool):
-        assert cls.__doc__, f"{cls.__name__} must have a docstring"
-
-
-def test_order_lookup_and_customer_profile_are_langchain_tools():
-    from graph.tools import order_lookup, customer_profile
+def test_all_tools_are_langchain_tools():
+    from graph.tools import order_lookup, customer_profile, refund, complaint_logger, memory_tool
     from langchain_core.tools import BaseTool
 
-    assert isinstance(order_lookup, BaseTool)
-    assert isinstance(customer_profile, BaseTool)
+    for t in (order_lookup, customer_profile, refund, complaint_logger, memory_tool):
+        assert isinstance(t, BaseTool), f"{t} must be a LangChain BaseTool"
