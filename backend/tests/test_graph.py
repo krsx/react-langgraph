@@ -51,21 +51,28 @@ def test_graph_invoke_returns_agent_state_shaped_dict():
 
 # ── Cycle 4: tools.py exposes all 5 tool class stubs ────────────────────────
 
-def test_tools_module_has_all_five_tool_classes():
+def test_tools_module_exposes_all_tools():
     from graph import tools
 
-    assert hasattr(tools, "OrderLookupTool")
-    assert hasattr(tools, "CustomerProfileTool")
+    # order_lookup and customer_profile are now real @tool functions
+    assert hasattr(tools, "order_lookup")
+    assert hasattr(tools, "customer_profile")
+    # remaining three are still class stubs pending future issues
     assert hasattr(tools, "RefundTool")
     assert hasattr(tools, "ComplaintLoggerTool")
     assert hasattr(tools, "MemoryTool")
 
 
-def test_tool_classes_have_docstrings():
-    from graph.tools import (
-        OrderLookupTool, CustomerProfileTool, RefundTool,
-        ComplaintLoggerTool, MemoryTool,
-    )
-    for cls in (OrderLookupTool, CustomerProfileTool, RefundTool,
-                ComplaintLoggerTool, MemoryTool):
+def test_tool_stubs_have_docstrings():
+    from graph.tools import RefundTool, ComplaintLoggerTool, MemoryTool
+
+    for cls in (RefundTool, ComplaintLoggerTool, MemoryTool):
         assert cls.__doc__, f"{cls.__name__} must have a docstring"
+
+
+def test_order_lookup_and_customer_profile_are_langchain_tools():
+    from graph.tools import order_lookup, customer_profile
+    from langchain_core.tools import BaseTool
+
+    assert isinstance(order_lookup, BaseTool)
+    assert isinstance(customer_profile, BaseTool)
