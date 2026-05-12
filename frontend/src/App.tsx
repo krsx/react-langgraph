@@ -12,7 +12,7 @@ import {
   getFilteredSessions,
 } from "./lib/state";
 import { ChatPanel } from "./components/chat/ChatPanel";
-import { RightPanelPlaceholder } from "./components/right-panel/RightPanelPlaceholder";
+import { AgentProcessPanel } from "./components/process/AgentProcessPanel";
 import { Sidebar } from "./components/sidebar/Sidebar";
 
 export default function App() {
@@ -102,7 +102,13 @@ export default function App() {
 
   return (
     <main className="min-h-screen p-4 md:p-6">
-      <div className="mx-auto grid min-h-[calc(100vh-2rem)] max-w-[1600px] grid-cols-1 gap-4 xl:grid-cols-[320px_minmax(0,1fr)_320px]">
+      <div
+        className={`mx-auto grid min-h-[calc(100vh-2rem)] max-w-[1600px] grid-cols-1 gap-4 ${
+          state.rightPanelOpen
+            ? "xl:grid-cols-[320px_minmax(0,1fr)_320px]"
+            : "xl:grid-cols-[320px_minmax(0,1fr)_88px]"
+        }`}
+      >
         <Sidebar
           customers={state.customers}
           activeCustomerId={state.activeCustomerId}
@@ -139,7 +145,7 @@ export default function App() {
           onSend={handleSend}
         />
 
-        <RightPanelPlaceholder
+        <AgentProcessPanel
           isOpen={state.rightPanelOpen}
           activeCustomerName={activeCustomer?.name ?? "Loading customer..."}
           selectedProvider={state.selectedProvider}

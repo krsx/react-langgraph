@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import App from "./App";
 import { createMockFetch } from "./test-utils/mockApi";
@@ -112,8 +112,8 @@ describe("App shell", () => {
     await userEvent.click(screen.getByRole("button", { name: "Send" }));
 
     expect(await screen.findByText("Your order")).toBeInTheDocument();
-    expect(screen.getByText("memory_loaded")).toBeInTheDocument();
-    expect(screen.getByText("response_end")).toBeInTheDocument();
+    expect(screen.getByText("No stored memory loaded for this turn")).toBeInTheDocument();
+    expect(screen.getByText("Current Turn")).toBeInTheDocument();
 
     await userEvent.type(screen.getByLabelText("Message composer"), "And now?");
     await userEvent.click(screen.getByRole("button", { name: "Send" }));
@@ -129,7 +129,7 @@ describe("App shell", () => {
     expect(requests[1].thread_id).toBe("thread-1");
   });
 
-  it("retains all SSE event types for the Right Panel placeholder", async () => {
+  it("renders process cards progressively and resets the panel on a new turn", async () => {
     const { fetchMock } = createMockFetch({
       customers: [
         { customer_id: 1, name: "Ahmad Rifqi", email: "ahmad@example.com", created_at: "2026-05-01" },
@@ -141,15 +141,28 @@ describe("App shell", () => {
       streamRuns: [
         {
           events: [
-            { type: "memory_loaded", thread_id: "thread-1", memory_context: [] },
-            { type: "planner_start", thread_id: "thread-1" },
-            { type: "planner_result", thread_id: "thread-1", content: "Checking", tool_calls: [{ name: "order_lookup", args: { order_id: 12345 } }] },
+            {
+              type: "planner_result",
+              thread_id: "thread-1",
+              content: "First turn reasoning",
+              tool_calls: [{ name: "order_lookup", args: { order_id: 12345 } }],
+            },
             { type: "tool_start", thread_id: "thread-1" },
             { type: "tool_result", thread_id: "thread-1", results: "{'status': 'pending'}" },
-            { type: "verifier_result", thread_id: "thread-1", valid: true, checks: ["ok"], override_message: null },
-            { type: "memory_updated", thread_id: "thread-1" },
-            { type: "response_token", thread_id: "thread-1", token: "Pending" },
             { type: "response_end", thread_id: "thread-1", response: "Pending" },
+          ],
+          chunkEachEvent: true,
+          chunkDelayMs: 25,
+        },
+        {
+          events: [
+            {
+              type: "planner_result",
+              thread_id: "thread-1",
+              content: "Second turn reasoning",
+              tool_calls: [{ name: "customer_profile", args: { customer_id: 1 } }],
+            },
+            { type: "response_end", thread_id: "thread-1", response: "Done" },
           ],
         },
       ],
@@ -161,18 +174,98 @@ describe("App shell", () => {
     await userEvent.type(await screen.findByLabelText("Message composer"), "Where is my order?");
     await userEvent.click(screen.getByRole("button", { name: "Send" }));
 
-    for (const eventName of [
-      "memory_loaded",
-      "planner_start",
-      "planner_result",
-      "tool_start",
-      "tool_result",
-      "verifier_result",
-      "memory_updated",
-      "response_token",
-      "response_end",
-    ]) {
-      expect(await screen.findByText(eventName)).toBeInTheDocument();
+    expect(await screen.findByText("First turn reasoning")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Streaming..." })).toBeDisabled();
+    expect(await screen.findByText("{'status': 'pending'}")).toBeInTheDocument();
+    expect(await screen.findByText("Pending")).toBeInTheDocument();
+
+    await userEvent.type(screen.getByLabelText("Message composer"), "Anything else?");
+    await userEvent.click(screen.getByRole("button", { name: "Send" }));
+
+    await waitFor(() => {
+      expect(screen.queryByText("First turn reasoning")).not.toBeInTheDocument();
+    });
+    expect(await screen.findByText("Second turn reasoning")).toBeInTheDocument();
+  });
+
+  it("renders execution context, planner reasoning, and planned tool calls in the Agent Process Panel", async () => {
+    const { fetchMock } = createMockFetch({
+      customers: [
+        { customer_id: 1, name: "Ahmad Rifqi", email: "ahmad@example.com", created_at: "2026-05-01" },
+      ],
+      providers: {
+        openrouter: { available: true, models: ["openai/gpt-4o"] },
+      },
+      sessions: [],
+      streamRuns: [
+        {
+          events: [
+            {
+              type: "planner_result",
+              thread_id: "thread-1",
+              content: "I should inspect the order before answering.",
+              tool_calls: [
+                { name: "order_lookup", args: { order_id: 12345 } },
+                { name: "customer_profile", args: { customer_id: 1 } },
+              ],
+            },
+            { type: "response_end", thread_id: "thread-1", response: "Done" },
+          ],
+        },
+      ],
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<App />);
+
+    await userEvent.type(await screen.findByLabelText("Message composer"), "Where is my order?");
+    await userEvent.click(screen.getByRole("button", { name: "Send" }));
+
+    const processPanel = await screen.findByRole("heading", { name: "Agent Process Panel" });
+    const panel = processPanel.closest("aside");
+    if (!panel) {
+      throw new Error("expected process panel aside");
     }
+
+    expect(within(panel).getByText("Ahmad Rifqi")).toBeInTheDocument();
+    expect(within(panel).getByText("openrouter")).toBeInTheDocument();
+    expect(within(panel).getByText("openai/gpt-4o")).toBeInTheDocument();
+    expect(within(panel).getByText("thread-1")).toBeInTheDocument();
+    expect(within(panel).getByText("I should inspect the order before answering.")).toBeInTheDocument();
+    expect(within(panel).getByText("order_lookup")).toBeInTheDocument();
+    expect(within(panel).getByText(/order_id/)).toBeInTheDocument();
+    expect(within(panel).getByText("customer_profile")).toBeInTheDocument();
+    expect(within(panel).getByText(/customer_id/)).toBeInTheDocument();
+  });
+
+  it("keeps the Right Panel collapsible to reclaim chat space", async () => {
+    const { fetchMock } = createMockFetch({
+      customers: [
+        { customer_id: 1, name: "Ahmad Rifqi", email: "ahmad@example.com", created_at: "2026-05-01" },
+      ],
+      providers: {
+        openrouter: { available: true, models: ["openai/gpt-4o"] },
+      },
+      sessions: [],
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<App />);
+
+    await screen.findByRole("heading", { name: "Agent Process Panel" });
+
+    const main = screen.getByRole("main");
+    const layout = main.firstElementChild;
+    if (!(layout instanceof HTMLDivElement)) {
+      throw new Error("expected app layout container");
+    }
+
+    expect(layout.className).toContain("xl:grid-cols-[320px_minmax(0,1fr)_320px]");
+
+    await userEvent.click(screen.getByRole("button", { name: "Collapse" }));
+
+    expect(screen.getByRole("button", { name: "Expand" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Agent Process Panel" })).not.toBeInTheDocument();
+    expect(layout.className).toContain("xl:grid-cols-[320px_minmax(0,1fr)_88px]");
   });
 });
