@@ -52,12 +52,14 @@ def refund(order_id: int, config: RunnableConfig) -> dict:
     try:
         cursor = conn.cursor(dictionary=True)
         cursor.execute(
-            "SELECT status FROM orders WHERE order_id = %s AND customer_id = %s",
-            (order_id, customer_id),
+            "SELECT customer_id, status FROM orders WHERE order_id = %s",
+            (order_id,),
         )
         row = cursor.fetchone()
         if row is None:
-            return {"error": f"Order {order_id} not found or not accessible."}
+            return {"error": f"Order {order_id} not found."}
+        if row["customer_id"] != customer_id:
+            return {"error": f"Order {order_id} does not belong to this customer."}
         if row["status"] != "delivered":
             return {
                 "error": f"Order {order_id} is not eligible for refund (status: {row['status']})."

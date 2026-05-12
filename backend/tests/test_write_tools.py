@@ -56,6 +56,7 @@ def test_refund_returns_error_for_nonexistent_order():
     result = refund.invoke({"order_id": 0}, config=CONFIG)
 
     assert "error" in result
+    assert "not found" in result["error"]
 
 
 @pytest.mark.integration
@@ -65,6 +66,7 @@ def test_refund_returns_error_for_cross_customer_access():
     result = refund.invoke({"order_id": 7890}, config=OTHER_CONFIG)
 
     assert "error" in result
+    assert "does not belong" in result["error"]
 
 
 # ── Cycle 4: complaint_logger inserts and returns complaint_id ───────────────
