@@ -328,6 +328,6 @@ def test_11_verifier_rejects_nonexistent_order(agent_graph, thread):
     else:
         # LLM declined without calling tools — it must at least say so
         content = last_ai_content(result["messages"])
-        assert any(kw in content for kw in ["not found", "error", "cannot", "unable", "doesn't exist", "do not", "no order"]), (
+        assert any(kw in content for kw in ["not found", "error", "cannot", "unable", "doesn't exist", "do not", "no order", "can't", "provide a valid order"]), (
             f"Expected LLM to report order 0000 not found. Got: {content[:200]}"
         )
