@@ -4,40 +4,59 @@ from langchain_core.messages import AIMessage, ToolMessage
 from graph.state import AgentState
 
 
+def _parse_tool_content(tm: ToolMessage) -> dict:
+    try:
+        content = json.loads(tm.content) if isinstance(tm.content, str) else tm.content
+        return content if isinstance(content, dict) else {"raw": str(content)}
+    except (json.JSONDecodeError, TypeError):
+        return {"raw": tm.content}
+
+
 def verifier(state: AgentState) -> dict:
     messages = state.get("messages") or []
 
     tool_messages = [m for m in messages if isinstance(m, ToolMessage)]
     if not tool_messages:
-        return {"verification": {"valid": True, "checks": ["no tool calls"], "override_message": None}}
+        return {
+            "verification": {"valid": True, "checks": ["no tool calls"], "override_message": None},
+            "tool_results": [],
+        }
 
-    errors = []
-    for tm in tool_messages:
-        try:
-            content = json.loads(tm.content) if isinstance(tm.content, str) else tm.content
-            if isinstance(content, dict) and "error" in content:
-                errors.append(content["error"])
-        except (json.JSONDecodeError, TypeError):
-            pass
+    parsed_results = [_parse_tool_content(tm) for tm in tool_messages]
 
-    if not errors:
-        return {"verification": {"valid": True, "checks": ["all checks passed"], "override_message": None}}
+    errors = [c["error"] for c in parsed_results if "error" in c]
+    empty_lookups = [
+        f"empty result for '{k}'"
+        for c in parsed_results
+        for k, v in c.items()
+        if isinstance(v, list) and len(v) == 0
+    ]
+    all_issues = errors + empty_lookups
 
-    last_ai = next(
-        (m for m in reversed(messages) if isinstance(m, AIMessage)),
-        None,
-    )
+    if not all_issues:
+        return {
+            "verification": {"valid": True, "checks": ["all checks passed"], "override_message": None},
+            "tool_results": parsed_results,
+        }
+
+    last_ai = next((m for m in reversed(messages) if isinstance(m, AIMessage)), None)
     ai_content = (last_ai.content or "").lower() if last_ai else ""
 
-    error_keywords = ["not found", "error", "cannot", "could not", "unable", "invalid", "not exist", "not accessible"]
+    error_keywords = ["not found", "error", "cannot", "could not", "unable", "invalid", "not exist", "not accessible", "no results", "empty"]
     llm_acknowledged = any(kw in ai_content for kw in error_keywords)
 
-    override = None if llm_acknowledged else f"I could not complete that request: {errors[0]}"
+    override = None if llm_acknowledged else f"I could not complete that request: {all_issues[0]}"
 
-    return {
+    result: dict = {
         "verification": {
             "valid": False,
-            "checks": [f"tool error: {e}" for e in errors],
+            "checks": [f"tool error: {e}" for e in errors] + [f"empty lookup: {e}" for e in empty_lookups],
             "override_message": override,
-        }
+        },
+        "tool_results": parsed_results,
     }
+
+    if override:
+        result["messages"] = [AIMessage(content=override)]
+
+    return result

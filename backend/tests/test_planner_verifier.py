@@ -144,3 +144,128 @@ def test_graph_invoke_end_to_end_with_real_llm():
     assert isinstance(last, AIMessage)
     assert len(last.content) > 0
     assert result["verification"]["valid"] is not None
+
+
+# ── Cycle 8: tool_results audit trail is populated ───────────────────────────
+
+def test_verifier_populates_tool_results_on_clean_run():
+    from graph.verifier import verifier
+
+    state = make_state(messages=[
+        HumanMessage(content="Check order 5678"),
+        AIMessage(content="", tool_calls=[{"id": "tc1", "name": "order_lookup", "args": {"order_id": 5678}}]),
+        make_tool_msg({"order_id": 5678, "status": "delivered"}),
+        AIMessage(content="Your order 5678 has been delivered."),
+    ])
+    result = verifier(state)
+
+    assert "tool_results" in result
+    assert result["tool_results"] == [{"order_id": 5678, "status": "delivered"}]
+
+
+def test_verifier_populates_empty_tool_results_when_no_tool_messages():
+    from graph.verifier import verifier
+
+    state = make_state(messages=[HumanMessage(content="hello"), AIMessage(content="Hi!")])
+    result = verifier(state)
+
+    assert result["tool_results"] == []
+
+
+# ── Cycle 9: empty lookup detection ──────────────────────────────────────────
+
+def test_verifier_invalid_when_tool_returns_empty_list():
+    from graph.verifier import verifier
+
+    state = make_state(messages=[
+        HumanMessage(content="What are my past orders?"),
+        AIMessage(content="", tool_calls=[{"id": "tc1", "name": "memory_tool", "args": {"action": "read"}}]),
+        make_tool_msg({"memories": []}),
+        AIMessage(content="Your order history is full of recent purchases!"),  # hallucination
+    ])
+    result = verifier(state)
+
+    assert result["verification"]["valid"] is False
+    checks = result["verification"]["checks"]
+    assert any("empty lookup" in c for c in checks)
+
+
+def test_verifier_valid_when_non_empty_list_in_tool_result():
+    from graph.verifier import verifier
+
+    state = make_state(messages=[
+        HumanMessage(content="What are my memories?"),
+        AIMessage(content="", tool_calls=[{"id": "tc1", "name": "memory_tool", "args": {"action": "read"}}]),
+        make_tool_msg({"memories": [{"key": "pref", "value": "fast shipping"}]}),
+        AIMessage(content="You prefer fast shipping."),
+    ])
+    result = verifier(state)
+
+    assert result["verification"]["valid"] is True
+
+
+# ── Cycle 10: override replaces hallucinated assistant message ────────────────
+
+def test_verifier_appends_override_message_to_messages():
+    from graph.verifier import verifier
+
+    state = make_state(messages=[
+        HumanMessage(content="Check order 0"),
+        AIMessage(content="", tool_calls=[{"id": "tc1", "name": "order_lookup", "args": {"order_id": 0}}]),
+        make_tool_msg({"error": "Order 0 not found or not accessible."}),
+        AIMessage(content="Your order is on its way!"),  # hallucination
+    ])
+    result = verifier(state)
+
+    assert "messages" in result
+    assert len(result["messages"]) == 1
+    override_msg = result["messages"][0]
+    assert isinstance(override_msg, AIMessage)
+    assert result["verification"]["override_message"] in override_msg.content
+
+
+def test_verifier_does_not_append_messages_when_llm_acknowledged():
+    from graph.verifier import verifier
+
+    state = make_state(messages=[
+        HumanMessage(content="Check order 0"),
+        AIMessage(content="", tool_calls=[{"id": "tc1", "name": "order_lookup", "args": {"order_id": 0}}]),
+        make_tool_msg({"error": "Order 0 not found or not accessible."}),
+        AIMessage(content="I'm sorry, I couldn't find order 0. It may not exist."),
+    ])
+    result = verifier(state)
+
+    assert "messages" not in result or result.get("messages") is None or result.get("messages") == []
+
+
+# ── Cycle 11: failure-case correctness (mock graph, no real LLM) ─────────────
+
+def test_graph_invoke_failure_case_sets_override(monkeypatch):
+    """When the LLM hallucinates over a tool error, verifier must surface the override."""
+    from unittest.mock import MagicMock, patch
+    from langchain_core.messages import HumanMessage, AIMessage, ToolMessage
+    import json
+
+    # Build a minimal state that looks like post-planner (tool error + hallucination)
+    tool_err_msg = ToolMessage(
+        content=json.dumps({"error": "Order 99999 not found or not accessible."}),
+        tool_call_id="tc-fake",
+    )
+    hallucinated_ai = AIMessage(content="Your order 99999 will arrive tomorrow!")
+
+    state = make_state(messages=[
+        HumanMessage(content="Where is order 99999?"),
+        AIMessage(content="", tool_calls=[{"id": "tc-fake", "name": "order_lookup", "args": {"order_id": 99999}}]),
+        tool_err_msg,
+        hallucinated_ai,
+    ])
+
+    from graph.verifier import verifier
+    result = verifier(state)
+
+    assert result["verification"]["valid"] is False
+    assert result["verification"]["override_message"] is not None
+    assert "messages" in result
+    final_msg = result["messages"][0]
+    assert isinstance(final_msg, AIMessage)
+    assert "could not" in final_msg.content.lower()
