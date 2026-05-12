@@ -19,7 +19,7 @@ CREATE TABLE IF NOT EXISTS complaints (
     complaint_id   INT AUTO_INCREMENT PRIMARY KEY,
     customer_id    INT,
     order_id       INT,
-    complaint_text TEXT,
+    issue          TEXT,
     status         VARCHAR(50),
     created_at     TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (customer_id) REFERENCES customers(customer_id),
@@ -76,13 +76,13 @@ INSERT INTO orders (order_id, customer_id, product_name, status, order_date, del
 -- test 8:  long-term memory read — prior delivery problems
 -- test 10: personalization — repeated late delivery pattern
 INSERT INTO customer_memory (customer_id, `key`, value) VALUES
-    (1, 'delivery_history',     'Order 1001 was delivered 3 days late in March 2026'),
-    (1, 'delivery_history',     'Order 12345 shipping was delayed due to warehouse backlog'),
+    (1, 'delivery_history_1001', 'Order 1001 was delivered 3 days late in March 2026'),
+    (1, 'delivery_history_12345', 'Order 12345 shipping was delayed due to warehouse backlog'),
     (1, 'late_delivery_pattern', 'Customer has a late delivery pattern across fulfilled orders'),
     (1, 'complaint_count',      '2');
 
 -- Seed complaints for customer 1
 -- test 8: complaint history available for memory/personalization lookups
-INSERT INTO complaints (customer_id, order_id, complaint_text, status) VALUES
+INSERT INTO complaints (customer_id, order_id, issue, status) VALUES
     (1, 5678, 'Package arrived two days later than promised', 'resolved'),
     (1, 7890, 'Repeated late delivery on delivered order',    'closed');
