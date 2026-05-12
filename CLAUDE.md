@@ -38,10 +38,10 @@ Single-context: one `CONTEXT.md` + `docs/adr/` at the repo root. See `docs/agent
 
 ```bash
 # Run non-integration tests (no MySQL required)
-cd backend && uv run pytest -m "not integration" -q
+cd backend && uv run pytest -m "not integration" -v
 
 # Run all tests (requires MySQL)
-cd backend && uv run pytest -q
+cd backend && uv run pytest -v
 
 # Start backend dev server
 cd backend && uv run uvicorn main:app --reload --port 8000
