@@ -4,7 +4,13 @@ import os
 
 
 @pytest.fixture(autouse=True)
-def clean_config_import():
+def clean_config_import(monkeypatch):
+    # Prevent load_dotenv from restoring deleted vars by patching it before
+    # config is imported; `from dotenv import load_dotenv` in config.py
+    # reads dotenv.load_dotenv at import time, so patching the module attr
+    # here guarantees the fresh import picks up the no-op.
+    import dotenv as _dotenv
+    monkeypatch.setattr(_dotenv, "load_dotenv", lambda *a, **kw: None)
     yield
     sys.modules.pop("config", None)
 

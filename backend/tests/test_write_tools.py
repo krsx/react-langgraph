@@ -102,12 +102,12 @@ def test_memory_tool_read_filters_by_key():
     from graph.tools import memory_tool
 
     result = memory_tool.invoke(
-        {"action": "read", "key": "late_delivery_1"}, config=CONFIG
+        {"action": "read", "key": "late_delivery_pattern"}, config=CONFIG
     )
 
     assert "memories" in result
     assert len(result["memories"]) == 1
-    assert result["memories"][0]["key"] == "late_delivery_1"
+    assert result["memories"][0]["key"] == "late_delivery_pattern"
 
 
 # ── Cycle 7: memory_tool write upserts (no duplicate on repeat) ─────────────

@@ -25,9 +25,9 @@ builder.add_edge("tools", "planner")
 builder.add_edge("verifier", "memory_update")
 builder.add_edge("memory_update", END)
 
+RECURSION_LIMIT = 10
+
 _conn = sqlite3.connect("checkpoints.db", check_same_thread=False)
 _checkpointer = SqliteSaver(_conn)
 
-graph = builder.compile(checkpointer=_checkpointer)
-
-RECURSION_LIMIT = 10
+graph = builder.compile(checkpointer=_checkpointer).with_config({"recursion_limit": RECURSION_LIMIT})
