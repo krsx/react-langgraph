@@ -34,9 +34,58 @@ Default label vocabulary: needs-triage, needs-info, ready-for-agent, ready-for-h
 
 Single-context: one `CONTEXT.md` + `docs/adr/` at the repo root. See `docs/agents/domain.md`.
 
-## When Code Exists
+## Development Commands
 
-Once the stack is established, update this file with:
-- Build, dev, lint, and test commands
-- Architecture overview (frontend/backend split, graph definition location, state schema)
-- How LangGraph state flows through the React UI
+```bash
+# Run non-integration tests (no MySQL required)
+cd /path/to/repo && .venv/bin/pytest backend/tests/ -m "not integration" -q
+
+# Run all tests (requires MySQL)
+.venv/bin/pytest backend/tests/ -q
+
+# Start backend dev server
+cd backend && uvicorn main:app --reload --port 8000
+
+# Start full stack (MySQL + Ollama + backend)
+docker compose up
+```
+
+## Architecture
+
+Backend: FastAPI + LangGraph (Python 3.10, `backend/`)
+
+```
+backend/
+├── main.py              # FastAPI app, routers registered here
+├── config.py            # Env-based Config dataclass
+├── llm_factory.py       # create_llm(provider, model) — OpenRouter or Ollama
+├── graph/
+│   ├── graph.py         # LangGraph StateGraph compiled with SqliteSaver checkpointer
+│   ├── state.py         # AgentState TypedDict
+│   ├── planner.py       # ReAct LLM node — reads provider/model from RunnableConfig
+│   ├── verifier.py      # Post-response quality check node
+│   ├── memory_loader.py # Loads customer memory from DB at start of turn
+│   ├── memory_update.py # Persists new memory after response
+│   └── tools.py         # order_lookup, customer_profile, refund, complaint_logger, memory_tool
+└── routes/
+    ├── chat.py          # POST /chat/stream — SSE streaming, forwards provider/model to graph
+    ├── providers.py     # GET /providers — health check for OpenRouter + Ollama
+    ├── sessions.py      # GET /sessions, GET /sessions/:id
+    ├── data.py          # GET /customers, /orders, /complaints
+    └── memory.py        # GET/PUT/DELETE /memory/:customer_id
+```
+
+## LLM Providers
+
+Two providers are supported; selected per-request via `provider` field in `/chat/stream` body.
+
+| Provider | Class | Base URL | Default model |
+|---|---|---|---|
+| `openrouter` (default) | `ChatOpenAI` | `https://openrouter.ai/api/v1` | `DEFAULT_MODEL` env |
+| `ollama` | `ChatOllama` | `OLLAMA_BASE_URL` env | `OLLAMA_DEFAULT_MODEL` env |
+
+**Constraint**: Ollama models **must** support tool calling for the agent to function. The planner uses `bind_tools()` and will fail at invocation time with models that don't support it.
+
+Verified tool-calling Ollama models: `qwen3:4b`, `qwen3:8b`, `llama3.1:8b`, `llama3.2:3b`, `mistral-nemo`, `firefunction-v2`
+
+Not supported: most base/instruct-only models (e.g. `phi3`, `gemma2`, `tinyllama`)

@@ -67,6 +67,8 @@ async def _event_stream(req: ChatRequest) -> AsyncGenerator[str, None]:
         "configurable": {
             "thread_id": thread_id,
             "customer_id": req.customer_id,
+            "provider": req.provider,
+            "model": req.model,
         }
     }
 

@@ -4,6 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from routes.chat import router as chat_router
 from routes.data import router as data_router
 from routes.memory import router as memory_router
+from routes.providers import router as providers_router
 from routes.sessions import router as sessions_router
 
 app = FastAPI(title="React LangGraph Backend")
@@ -19,6 +20,7 @@ app.add_middleware(
 app.include_router(chat_router)
 app.include_router(data_router)
 app.include_router(memory_router)
+app.include_router(providers_router)
 app.include_router(sessions_router)
 
 

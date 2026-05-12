@@ -32,8 +32,12 @@ def build_system_prompt(memory_context: list[dict] | None) -> str:
 
 
 def planner(state: AgentState, config: RunnableConfig) -> dict:
+    configurable = config.get("configurable", {}) if config else {}
+    provider = configurable.get("provider", None)
+    model = configurable.get("model", None)
+
     system_prompt = build_system_prompt(state.get("memory_context"))
-    llm_with_tools = create_llm().bind_tools(_TOOLS)
+    llm_with_tools = create_llm(provider=provider, model=model).bind_tools(_TOOLS)
     messages = [SystemMessage(content=system_prompt)] + list(state["messages"])
     response = llm_with_tools.invoke(messages, config=config)
     return {"messages": [response]}

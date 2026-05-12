@@ -1,7 +1,9 @@
 langgraph
 langgraph-checkpoint-sqlite
 langchain-openai
+langchain-ollama
 fastapi
 uvicorn[standard]
+httpx
 mysql-connector-python
 python-dotenv
