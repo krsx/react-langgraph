@@ -24,7 +24,7 @@ def build_system_prompt(memory_context: list[dict] | None) -> str:
                 lines.append(f"- {e['key']}: {e['value']}")
 
         if complaint_entries:
-            lines.append("\nOpen Complaints:")
+            lines.append("\nComplaint History:")
             for e in complaint_entries:
                 lines.append(f"- Order {e['order_id']}: {e['issue']} (status: {e['status']})")
 

@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from langchain_core.messages import HumanMessage
+from langchain_core.messages import HumanMessage, ToolMessage
 
 from db.connection import get_connection
 from graph.state import AgentState
@@ -16,14 +16,12 @@ def memory_update(state: AgentState) -> dict:
         return {}
 
     last_human = human_messages[-1].content
-    tool_results = state.get("tool_results")
+    tool_messages = [m for m in messages if isinstance(m, ToolMessage)]
     tool_names = "none"
     tool_summary = "none"
-    if tool_results:
-        tool_names = ", ".join(
-            str(r.get("tool", r.get("order_id", "tool"))) for r in tool_results
-        )
-        tool_summary = str(tool_results)[:200]
+    if tool_messages:
+        tool_names = ", ".join(getattr(m, "name", "tool") for m in tool_messages)
+        tool_summary = str([m.content for m in tool_messages])[:200]
 
     timestamp = datetime.now(timezone.utc).isoformat()
     summary = f"[{timestamp}] User: {last_human} | Tools used: {tool_names} | Outcome: {tool_summary}"

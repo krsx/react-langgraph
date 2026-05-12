@@ -1,5 +1,5 @@
 import pytest
-from langchain_core.messages import HumanMessage
+from langchain_core.messages import HumanMessage, ToolMessage
 
 pytestmark = pytest.mark.integration
 
@@ -61,8 +61,14 @@ def test_memory_update_writes_interaction_summary():
 
     state = make_state(
         customer_id=1,
-        messages=[HumanMessage(content="Refund order 7890")],
-        tool_results=[{"order_id": 7890, "status": "refund_requested"}],
+        messages=[
+            HumanMessage(content="Refund order 7890"),
+            ToolMessage(
+                content='{"order_id": 7890, "status": "refund_requested"}',
+                tool_call_id="call_1",
+                name="refund",
+            ),
+        ],
     )
 
     memory_update(state)
@@ -79,6 +85,7 @@ def test_memory_update_writes_interaction_summary():
 
     assert row is not None
     assert "Refund order 7890" in row["value"]
+    assert "refund" in row["value"]
 
 
 # ── Cycle 5: Memory Update upserts (no duplicate on repeat call) ────────────

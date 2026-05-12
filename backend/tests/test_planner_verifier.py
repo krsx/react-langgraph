@@ -90,7 +90,7 @@ def test_build_system_prompt_empty_context_has_no_sections():
     prompt = build_system_prompt([])
 
     assert "Customer History" not in prompt
-    assert "Open Complaints" not in prompt
+    assert "Complaint History" not in prompt
 
 
 # ── Cycle 5: build_system_prompt — Customer History for memory entries ────────
@@ -109,9 +109,9 @@ def test_build_system_prompt_includes_customer_history():
     assert "Order 1001 was late" in prompt
 
 
-# ── Cycle 6: build_system_prompt — Open Complaints for complaint entries ──────
+# ── Cycle 6: build_system_prompt — Complaint History for complaint entries ────
 
-def test_build_system_prompt_includes_open_complaints():
+def test_build_system_prompt_includes_complaint_history():
     from graph.planner import build_system_prompt
 
     context = [
@@ -119,7 +119,7 @@ def test_build_system_prompt_includes_open_complaints():
     ]
     prompt = build_system_prompt(context)
 
-    assert "Open Complaints" in prompt
+    assert "Complaint History" in prompt
     assert "2222" in prompt
     assert "Item damaged" in prompt
 
