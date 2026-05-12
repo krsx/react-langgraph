@@ -59,7 +59,9 @@ def refund(order_id: int, config: RunnableConfig) -> dict:
         if row is None:
             return {"error": f"Order {order_id} not found or not accessible."}
         if row["status"] != "delivered":
-            return {"error": f"Order {order_id} is not eligible for refund (status: {row['status']})."}
+            return {
+                "error": f"Order {order_id} is not eligible for refund (status: {row['status']})."
+            }
         cursor.execute(
             "UPDATE orders SET status = 'refund_requested' WHERE order_id = %s AND customer_id = %s",
             (order_id, customer_id),
@@ -88,7 +90,9 @@ def complaint_logger(order_id: int, issue: str, config: RunnableConfig) -> dict:
 
 
 @tool
-def memory_tool(action: str, config: RunnableConfig, key: str = None, value: str = None) -> dict:
+def memory_tool(
+    action: str, config: RunnableConfig, key: str = None, value: str = None
+) -> dict:
     """Read or write long-term customer memory. action='read' retrieves entries (optionally filtered by key). action='write' upserts a key-value pair."""
     customer_id = config["configurable"]["customer_id"]
     conn = get_connection()

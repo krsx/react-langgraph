@@ -52,3 +52,25 @@ def test_create_llm_uses_default_model(monkeypatch):
     llm = create_llm()
 
     assert llm.model_name == "qwen2.5"
+
+
+def test_create_llm_uses_safe_default_max_tokens(monkeypatch):
+    for k, v in ENV.items():
+        monkeypatch.setenv(k, v)
+    monkeypatch.delenv("LLM_MAX_TOKENS", raising=False)
+
+    from llm_factory import create_llm
+    llm = create_llm()
+
+    assert llm.max_tokens == 4096
+
+
+def test_create_llm_allows_max_tokens_override(monkeypatch):
+    for k, v in ENV.items():
+        monkeypatch.setenv(k, v)
+    monkeypatch.setenv("LLM_MAX_TOKENS", "512")
+
+    from llm_factory import create_llm
+    llm = create_llm()
+
+    assert llm.max_tokens == 512

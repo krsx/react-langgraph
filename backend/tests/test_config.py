@@ -10,7 +10,6 @@ def clean_config_import():
 
 
 REQUIRED_VARS = {
-    "LLM_PROVIDER_URL": "https://openrouter.ai/api/v1",
     "DEFAULT_MODEL": "google/gemini-2.5-flash",
     "OPENROUTER_API_KEY": "test-key",
     "MYSQL_HOST": "localhost",
@@ -24,6 +23,7 @@ REQUIRED_VARS = {
 def test_config_loads_all_env_vars(monkeypatch):
     for k, v in REQUIRED_VARS.items():
         monkeypatch.setenv(k, v)
+    monkeypatch.setenv("LLM_PROVIDER_URL", "https://openrouter.ai/api/v1")
 
     from config import get_config
     cfg = get_config()
@@ -36,6 +36,17 @@ def test_config_loads_all_env_vars(monkeypatch):
     assert cfg.MYSQL_USER == "root"
     assert cfg.MYSQL_PASSWORD == "secret"
     assert cfg.MYSQL_DATABASE == "csagent"
+
+
+def test_config_defaults_provider_url_to_openrouter(monkeypatch):
+    for k, v in REQUIRED_VARS.items():
+        monkeypatch.setenv(k, v)
+    monkeypatch.delenv("LLM_PROVIDER_URL", raising=False)
+
+    from config import OPENROUTER_BASE_URL, get_config
+    cfg = get_config()
+
+    assert cfg.LLM_PROVIDER_URL == OPENROUTER_BASE_URL
 
 
 @pytest.mark.parametrize("missing_var", list(REQUIRED_VARS.keys()))
