@@ -6,6 +6,7 @@ from fastapi import APIRouter
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
+from db.connection import get_connection
 from graph.graph import graph
 
 router = APIRouter(prefix="/chat")
@@ -23,6 +24,38 @@ def _sse(event_type: str, data: dict) -> str:
     return f"event: {event_type}\ndata: {json.dumps(data)}\n\n"
 
 
+def _persist_session_start(thread_id: str, customer_id: int, human_message: str) -> None:
+    conn = get_connection()
+    try:
+        cursor = conn.cursor()
+        cursor.execute(
+            "INSERT IGNORE INTO sessions (thread_id, customer_id) VALUES (%s, %s)",
+            (thread_id, customer_id),
+        )
+        cursor.execute(
+            "INSERT INTO session_messages (thread_id, role, content) VALUES (%s, %s, %s)",
+            (thread_id, "human", human_message),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def _persist_ai_message(thread_id: str, content: str) -> None:
+    if not content:
+        return
+    conn = get_connection()
+    try:
+        cursor = conn.cursor()
+        cursor.execute(
+            "INSERT INTO session_messages (thread_id, role, content) VALUES (%s, %s, %s)",
+            (thread_id, "ai", content),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
 async def _event_stream(req: ChatRequest) -> AsyncGenerator[str, None]:
     thread_id = req.thread_id or str(uuid.uuid4())
 
@@ -38,6 +71,8 @@ async def _event_stream(req: ChatRequest) -> AsyncGenerator[str, None]:
     }
 
     response_tokens: list[str] = []
+
+    _persist_session_start(thread_id, req.customer_id, req.message)
 
     try:
         async for event in graph.astream_events(input_state, config=config, version="v2"):
@@ -101,9 +136,11 @@ async def _event_stream(req: ChatRequest) -> AsyncGenerator[str, None]:
                     response_tokens.append(token)
                     yield _sse("response_token", {"thread_id": thread_id, "token": token})
 
+        ai_response = "".join(response_tokens)
+        _persist_ai_message(thread_id, ai_response)
         yield _sse("response_end", {
             "thread_id": thread_id,
-            "response": "".join(response_tokens),
+            "response": ai_response,
         })
 
     except Exception as exc:
