@@ -10,3 +10,6 @@ __pycache__/
 
 # Env
 .env
+
+checkpoints.db
+/backend/checkpoints.db
