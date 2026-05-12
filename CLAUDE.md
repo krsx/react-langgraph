@@ -38,13 +38,13 @@ Single-context: one `CONTEXT.md` + `docs/adr/` at the repo root. See `docs/agent
 
 ```bash
 # Run non-integration tests (no MySQL required)
-cd /path/to/repo && .venv/bin/pytest backend/tests/ -m "not integration" -q
+cd backend && uv run pytest -m "not integration" -q
 
 # Run all tests (requires MySQL)
-.venv/bin/pytest backend/tests/ -q
+cd backend && uv run pytest -q
 
 # Start backend dev server
-cd backend && uvicorn main:app --reload --port 8000
+cd backend && uv run uvicorn main:app --reload --port 8000
 
 # Start full stack (MySQL + Ollama + backend)
 docker compose up

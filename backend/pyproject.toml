@@ -1,0 +1,26 @@
+[project]
+name = "react-langgraph-backend"
+version = "0.1.0"
+requires-python = ">=3.10"
+dependencies = [
+    "langgraph",
+    "langgraph-checkpoint-sqlite",
+    "langchain-openai",
+    "langchain-ollama",
+    "fastapi",
+    "uvicorn[standard]",
+    "httpx",
+    "mysql-connector-python",
+    "python-dotenv",
+]
+
+[dependency-groups]
+dev = [
+    "pytest",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+    "integration: marks tests that require a live MySQL instance (deselect with -m 'not integration')",
+]

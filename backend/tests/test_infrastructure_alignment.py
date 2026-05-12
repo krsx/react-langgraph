@@ -13,7 +13,10 @@ def test_dockerfile_entrypoint_module_exists():
 
 
 def test_required_dependencies_are_declared():
-    requirements = (BACKEND_DIR / "requirements.txt").read_text().splitlines()
+    import tomllib
+
+    pyproject = tomllib.loads((BACKEND_DIR / "pyproject.toml").read_text())
+    declared = pyproject["project"]["dependencies"]
 
     for dependency in (
         "langgraph",
@@ -23,7 +26,9 @@ def test_required_dependencies_are_declared():
         "mysql-connector-python",
         "python-dotenv",
     ):
-        assert dependency in requirements
+        assert any(dep.startswith(dependency) for dep in declared), (
+            f"{dependency!r} not found in pyproject.toml dependencies"
+        )
 
 
 def test_docker_compose_declares_mysql_seeded_service():
