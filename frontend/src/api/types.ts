@@ -45,3 +45,27 @@ export interface SseFrame {
   event: SseEventName
   data: Record<string, unknown>
 }
+
+export interface Order {
+  order_id: number
+  customer_id: number
+  product_name: string
+  status: string
+  order_date: string
+  delivery_date: string | null
+}
+
+export interface Complaint {
+  complaint_id: number
+  customer_id: number
+  order_id: number
+  issue: string
+  status: string
+  created_at: string
+}
+
+export interface MemoryEntry {
+  key: string
+  value: string
+  created_at: string
+}

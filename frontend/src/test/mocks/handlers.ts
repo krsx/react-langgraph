@@ -31,4 +31,47 @@ export const handlers = [
     }
     return HttpResponse.json({ detail: 'Session not found' }, { status: 404 })
   }),
+
+  http.get('/api/orders', ({ request }) => {
+    const url = new URL(request.url)
+    const customerId = url.searchParams.get('customer_id')
+    const orders = [
+      { order_id: 12345, customer_id: 1, product_name: 'Wireless Headphones', status: 'pending', order_date: '2026-04-01T10:00:00', delivery_date: null },
+      { order_id: 5678, customer_id: 1, product_name: 'USB-C Hub', status: 'delivered', order_date: '2026-03-10T08:00:00', delivery_date: '2026-03-15T14:00:00' },
+      { order_id: 9999, customer_id: 2, product_name: 'Other Product', status: 'processing', order_date: '2026-04-10T09:00:00', delivery_date: null },
+    ]
+    return HttpResponse.json(
+      customerId ? orders.filter((o) => o.customer_id === Number(customerId)) : orders
+    )
+  }),
+
+  http.get('/api/complaints', ({ request }) => {
+    const url = new URL(request.url)
+    const customerId = url.searchParams.get('customer_id')
+    const complaints = [
+      { complaint_id: 1, customer_id: 1, order_id: 5678, issue: 'Package arrived late', status: 'resolved', created_at: '2026-03-16T10:00:00' },
+    ]
+    return HttpResponse.json(
+      customerId ? complaints.filter((c) => c.customer_id === Number(customerId)) : complaints
+    )
+  }),
+
+  http.get('/api/memory/:customerId', ({ params }) => {
+    if (String(params.customerId) === '1') {
+      return HttpResponse.json([
+        { key: 'late_delivery_pattern', value: 'Customer has late delivery pattern', created_at: '2026-01-01T00:00:00' },
+        { key: 'complaint_count', value: '2', created_at: '2026-01-01T00:00:00' },
+      ])
+    }
+    return HttpResponse.json([])
+  }),
+
+  http.put('/api/memory/:customerId', async ({ request }) => {
+    const body = await request.json()
+    return HttpResponse.json({ updated: Array.isArray(body) ? (body as unknown[]).length : 1 })
+  }),
+
+  http.delete('/api/memory/:customerId/:key', () =>
+    HttpResponse.json({ deleted: true })
+  ),
 ]

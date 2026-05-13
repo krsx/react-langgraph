@@ -1,7 +1,14 @@
 import { useApp } from '@/state/context'
 
 export function CustomerPicker() {
-  const { state, dispatch } = useApp()
+  const { state, dispatch, dirtyGuardRef } = useApp()
+
+  function handleChange(e: React.ChangeEvent<HTMLSelectElement>) {
+    const customerId = Number(e.target.value)
+    if (!customerId) return
+    if (dirtyGuardRef.current && !dirtyGuardRef.current()) return
+    dispatch({ type: 'CUSTOMER_CHANGED', customerId })
+  }
 
   return (
     <div>
@@ -10,9 +17,7 @@ export function CustomerPicker() {
         data-testid="customer-select"
         className="w-full rounded border border-gray-300 px-2 py-1.5 text-sm"
         value={state.activeCustomerId ?? ''}
-        onChange={(e) =>
-          e.target.value && dispatch({ type: 'CUSTOMER_CHANGED', customerId: Number(e.target.value) })
-        }
+        onChange={handleChange}
       >
         <option value="">Select customer…</option>
         {state.customers.map((c) => (
