@@ -5,6 +5,29 @@ export type Customer = {
   created_at: string;
 };
 
+export type Order = {
+  order_id: number;
+  customer_id: number;
+  product_name: string;
+  status: string;
+  created_at?: string;
+};
+
+export type Complaint = {
+  complaint_id: number;
+  customer_id: number;
+  order_id?: number | null;
+  issue: string;
+  status: string;
+  created_at: string;
+};
+
+export type CustomerMemoryRecord = {
+  key: string;
+  value: string;
+  created_at: string;
+};
+
 export type ProviderState = {
   available: boolean;
   models: string[];

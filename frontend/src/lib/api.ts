@@ -2,7 +2,10 @@ import { streamChat } from "./sse";
 import type {
   ChatRequest,
   ChatStreamEvent,
+  Complaint,
   Customer,
+  CustomerMemoryRecord,
+  Order,
   ProviderCatalog,
   SessionMessage,
   SessionSummary,
@@ -20,6 +23,39 @@ async function fetchJson<T>(path: string, init?: RequestInit): Promise<T> {
 
 export function getCustomers(): Promise<Customer[]> {
   return fetchJson<Customer[]>("/customers");
+}
+
+export function getOrders(customerId: number | null): Promise<Order[]> {
+  const search = customerId === null ? "" : `?customer_id=${customerId}`;
+  return fetchJson<Order[]>(`/orders${search}`);
+}
+
+export function getComplaints(customerId: number | null): Promise<Complaint[]> {
+  const search = customerId === null ? "" : `?customer_id=${customerId}`;
+  return fetchJson<Complaint[]>(`/complaints${search}`);
+}
+
+export function getMemory(customerId: number): Promise<CustomerMemoryRecord[]> {
+  return fetchJson<CustomerMemoryRecord[]>(`/memory/${customerId}`);
+}
+
+export function putMemory(
+  customerId: number,
+  entries: Array<{ key: string; value: string }>,
+): Promise<{ updated: number }> {
+  return fetchJson<{ updated: number }>(`/memory/${customerId}`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(entries),
+  });
+}
+
+export function deleteMemoryEntry(customerId: number, key: string): Promise<{ deleted: boolean }> {
+  return fetchJson<{ deleted: boolean }>(`/memory/${customerId}/${encodeURIComponent(key)}`, {
+    method: "DELETE",
+  });
 }
 
 export function getProviders(): Promise<ProviderCatalog> {

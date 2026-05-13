@@ -1,4 +1,4 @@
-import { startTransition, useEffect, useReducer } from "react";
+import { startTransition, useEffect, useReducer, useState } from "react";
 import {
   getCustomers,
   getProviders,
@@ -12,11 +12,12 @@ import {
   getFilteredSessions,
 } from "./lib/state";
 import { ChatPanel } from "./components/chat/ChatPanel";
-import { AgentProcessPanel } from "./components/process/AgentProcessPanel";
+import { RightPanel } from "./components/right-panel/RightPanel";
 import { Sidebar } from "./components/sidebar/Sidebar";
 
 export default function App() {
   const [state, dispatch] = useReducer(appReducer, undefined, createInitialState);
+  const [memoryManagerDirty, setMemoryManagerDirty] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -99,6 +100,22 @@ export default function App() {
     });
   }
 
+  function handleCustomerSelect(customerId: number) {
+    if (customerId === state.activeCustomerId) {
+      return;
+    }
+
+    if (
+      memoryManagerDirty &&
+      !window.confirm("Discard unsaved Memory Manager edits and switch customers?")
+    ) {
+      return;
+    }
+
+    setMemoryManagerDirty(false);
+    dispatch({ type: "customer_selected", customerId });
+  }
+
   return (
     <main className="min-h-screen p-4 md:p-6">
       <div
@@ -116,9 +133,7 @@ export default function App() {
           selectedModel={state.selectedModel}
           sessions={filteredSessions}
           readOnly={state.view.mode === "history"}
-          onCustomerSelect={(customerId) =>
-            dispatch({ type: "customer_selected", customerId })
-          }
+          onCustomerSelect={handleCustomerSelect}
           onProviderSelect={(provider) =>
             dispatch({ type: "provider_selected", provider })
           }
@@ -144,13 +159,15 @@ export default function App() {
           onSend={handleSend}
         />
 
-        <AgentProcessPanel
+        <RightPanel
           isOpen={state.rightPanelOpen}
+          activeCustomerId={state.activeCustomerId}
           activeCustomerName={activeCustomer?.name ?? "Loading customer..."}
           selectedProvider={state.selectedProvider}
           selectedModel={state.selectedModel}
           threadId={state.view.threadId}
           events={state.stream.processEvents}
+          onMemoryDirtyChange={setMemoryManagerDirty}
           onToggle={() => dispatch({ type: "right_panel_toggled" })}
         />
       </div>

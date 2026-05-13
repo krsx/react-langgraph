@@ -7,12 +7,15 @@ import type {
 import { Button } from "../ui/button";
 
 type AgentProcessPanelProps = {
-  isOpen: boolean;
   activeCustomerName: string;
   selectedProvider: string | null;
   selectedModel: string | null;
   threadId: string | null;
   events: ChatStreamEvent[];
+};
+
+type AgentProcessPanelWrapperProps = AgentProcessPanelProps & {
+  isOpen: boolean;
   onToggle: () => void;
 };
 
@@ -249,6 +252,37 @@ function ProcessStepCard({ card, index }: ProcessStepCardProps) {
   );
 }
 
+export function AgentProcessPanelContent({
+  activeCustomerName,
+  selectedProvider,
+  selectedModel,
+  threadId,
+  events,
+}: AgentProcessPanelProps) {
+  const cards = buildStepCards(events);
+
+  return (
+    <div className="space-y-5 overflow-y-auto">
+      <ExecutionContextCard
+        activeCustomerName={activeCustomerName}
+        selectedProvider={selectedProvider}
+        selectedModel={selectedModel}
+        threadId={threadId}
+      />
+
+      {cards.length > 0 ? (
+        cards.map((card, index) => (
+          <ProcessStepCard key={`${card.kind}-${index}`} card={card} index={index} />
+        ))
+      ) : (
+        <section className="rounded-[24px] border border-dashed border-border bg-background/60 px-4 py-6 text-sm text-muted-foreground">
+          Current-turn process steps will appear here as SSE events arrive.
+        </section>
+      )}
+    </div>
+  );
+}
+
 export function AgentProcessPanel({
   isOpen,
   activeCustomerName,
@@ -257,9 +291,7 @@ export function AgentProcessPanel({
   threadId,
   events,
   onToggle,
-}: AgentProcessPanelProps) {
-  const cards = buildStepCards(events);
-
+}: AgentProcessPanelWrapperProps) {
   return (
     <aside
       className={cn(
@@ -280,23 +312,14 @@ export function AgentProcessPanel({
       </div>
 
       {isOpen ? (
-        <div className="mt-5 space-y-5 overflow-y-auto">
-          <ExecutionContextCard
+        <div className="mt-5">
+          <AgentProcessPanelContent
             activeCustomerName={activeCustomerName}
             selectedProvider={selectedProvider}
             selectedModel={selectedModel}
             threadId={threadId}
+            events={events}
           />
-
-          {cards.length > 0 ? (
-            cards.map((card, index) => (
-              <ProcessStepCard key={`${card.kind}-${index}`} card={card} index={index} />
-            ))
-          ) : (
-            <section className="rounded-[24px] border border-dashed border-border bg-background/60 px-4 py-6 text-sm text-muted-foreground">
-              Current-turn process steps will appear here as SSE events arrive.
-            </section>
-          )}
         </div>
       ) : null}
     </aside>

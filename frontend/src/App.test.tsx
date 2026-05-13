@@ -268,4 +268,92 @@ describe("App shell", () => {
     expect(screen.queryByRole("heading", { name: "Agent Process Panel" })).not.toBeInTheDocument();
     expect(layout.className).toContain("xl:grid-cols-[320px_minmax(0,1fr)_88px]");
   });
+
+  it("hosts Agent Process, Data Explorer, and Memory Manager inside the Right Panel", async () => {
+    const { fetchMock } = createMockFetch({
+      customers: [
+        { customer_id: 1, name: "Ahmad Rifqi", email: "ahmad@example.com", created_at: "2026-05-01" },
+      ],
+      providers: {
+        openrouter: { available: true, models: ["openai/gpt-4o"], default_model: "openai/gpt-4o" },
+      },
+      sessions: [],
+      orders: [
+        { order_id: 1001, customer_id: 1, product_name: "Widget", status: "pending", created_at: "2026-05-03" },
+      ],
+      complaints: [
+        {
+          complaint_id: 9001,
+          customer_id: 1,
+          order_id: 1001,
+          issue: "Late delivery",
+          status: "open",
+          created_at: "2026-05-04",
+        },
+      ],
+      memory: [
+        { key: "preferred_channel", value: "email", created_at: "2026-05-01T00:00:00Z" },
+      ],
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<App />);
+
+    expect(await screen.findByRole("heading", { name: "Agent Process Panel" })).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("tab", { name: "Data Explorer" }));
+
+    expect(await screen.findByRole("heading", { name: "Data Explorer" })).toBeInTheDocument();
+    expect(screen.getByText("Widget")).toBeInTheDocument();
+    expect(screen.getByText("Late delivery")).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("tab", { name: "Memory Manager" }));
+
+    expect(await screen.findByRole("heading", { name: "Memory Manager" })).toBeInTheDocument();
+    expect(screen.getByText("preferred_channel")).toBeInTheDocument();
+    expect(screen.getByText("email")).toBeInTheDocument();
+  });
+
+  it("confirms before switching customers when Memory Manager has unsaved edits", async () => {
+    const confirmSpy = vi.spyOn(window, "confirm");
+    confirmSpy.mockReturnValueOnce(false).mockReturnValueOnce(true);
+
+    const { fetchMock } = createMockFetch({
+      customers: [
+        { customer_id: 1, name: "Ahmad Rifqi", email: "ahmad@example.com", created_at: "2026-05-01" },
+        { customer_id: 2, name: "Bea Foo", email: "bea@example.com", created_at: "2026-05-02" },
+      ],
+      providers: {
+        openrouter: { available: true, models: ["openai/gpt-4o"], default_model: "openai/gpt-4o" },
+      },
+      sessions: [],
+      memoryByCustomerId: {
+        1: [{ key: "preferred_channel", value: "email", created_at: "2026-05-01T00:00:00Z" }],
+        2: [{ key: "vip_status", value: "true", created_at: "2026-05-02T00:00:00Z" }],
+      },
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<App />);
+
+    await userEvent.click(await screen.findByRole("tab", { name: "Memory Manager" }));
+    expect(await screen.findByRole("heading", { name: "Memory Manager" })).toBeInTheDocument();
+
+    await userEvent.type(screen.getByLabelText("Memory key"), "draft_key");
+    await userEvent.type(screen.getByLabelText("Memory value"), "draft value");
+
+    await userEvent.selectOptions(screen.getByLabelText("Customer"), "2");
+
+    expect(confirmSpy).toHaveBeenCalled();
+    expect(screen.getByLabelText("Customer")).toHaveValue("1");
+    expect(screen.getByLabelText("Memory key")).toHaveValue("draft_key");
+    expect(screen.getByLabelText("Memory value")).toHaveValue("draft value");
+
+    await userEvent.selectOptions(screen.getByLabelText("Customer"), "2");
+
+    expect(await screen.findByText("vip_status")).toBeInTheDocument();
+    expect(screen.getByLabelText("Customer")).toHaveValue("2");
+    expect(screen.getByLabelText("Memory key")).toHaveValue("");
+    expect(screen.getByLabelText("Memory value")).toHaveValue("");
+  });
 });

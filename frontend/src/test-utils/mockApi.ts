@@ -2,7 +2,10 @@ import { vi } from "vitest";
 import type {
   ChatRequest,
   ChatStreamEvent,
+  Complaint,
   Customer,
+  CustomerMemoryRecord,
+  Order,
   ProviderCatalog,
   SessionMessage,
   SessionSummary,
@@ -16,7 +19,11 @@ type StreamRun = {
 };
 
 type MockApiConfig = {
+  complaints?: Complaint[];
   customers: Customer[];
+  memory?: CustomerMemoryRecord[];
+  memoryByCustomerId?: Record<number, CustomerMemoryRecord[]>;
+  orders?: Order[];
   providers: ProviderCatalog;
   sessions: SessionSummary[];
   sessionMessages?: Record<string, SessionMessage[]>;
@@ -77,10 +84,21 @@ function createStream(
 export function createMockFetch(config: MockApiConfig) {
   const requests: ChatRequest[] = [];
   const streamRuns = [...(config.streamRuns ?? [])];
+  const memoryByCustomerId = new Map<number, CustomerMemoryRecord[]>(
+    Object.entries(config.memoryByCustomerId ?? {}).map(([customerId, entries]) => [
+      Number(customerId),
+      [...entries],
+    ]),
+  );
+
+  if (config.memory && !memoryByCustomerId.has(1)) {
+    memoryByCustomerId.set(1, [...config.memory]);
+  }
 
   const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
-    const { pathname } = new URL(url);
+    const parsedUrl = new URL(url);
+    const { pathname, searchParams } = parsedUrl;
 
     if (pathname === "/customers") {
       return new Response(JSON.stringify(config.customers), {
@@ -91,6 +109,30 @@ export function createMockFetch(config: MockApiConfig) {
 
     if (pathname === "/providers") {
       return new Response(JSON.stringify(config.providers), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
+    if (pathname === "/orders") {
+      const customerId = searchParams.get("customer_id");
+      const availableOrders = [...(config.orders ?? [])];
+      const rows = customerId === null
+        ? availableOrders
+        : availableOrders.filter((order) => order.customer_id === Number(customerId));
+      return new Response(JSON.stringify(rows), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
+    if (pathname === "/complaints") {
+      const customerId = searchParams.get("customer_id");
+      const availableComplaints = [...(config.complaints ?? [])];
+      const rows = customerId === null
+        ? availableComplaints
+        : availableComplaints.filter((complaint) => complaint.customer_id === Number(customerId));
+      return new Response(JSON.stringify(rows), {
         status: 200,
         headers: { "Content-Type": "application/json" },
       });
@@ -112,6 +154,63 @@ export function createMockFetch(config: MockApiConfig) {
           headers: { "Content-Type": "application/json" },
         },
       );
+    }
+
+    if (pathname.startsWith("/memory/")) {
+      const [, , customerIdText, ...keyParts] = pathname.split("/");
+      const customerId = Number(customerIdText);
+      const existingEntries = memoryByCustomerId.get(customerId) ?? [];
+
+      if (!init?.method || init.method === "GET") {
+        return new Response(JSON.stringify(existingEntries), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+
+      if (init.method === "PUT") {
+        const entries = init.body
+          ? JSON.parse(String(init.body)) as Array<{ key: string; value: string }>
+          : [];
+
+        const nextEntries = [...existingEntries];
+        for (const entry of entries) {
+          const existingIndex = nextEntries.findIndex((item) => item.key === entry.key);
+          if (existingIndex >= 0) {
+            nextEntries[existingIndex] = {
+              ...nextEntries[existingIndex],
+              value: entry.value,
+            };
+          } else {
+            nextEntries.push({
+              key: entry.key,
+              value: entry.value,
+              created_at: "2026-05-01T00:00:00Z",
+            });
+          }
+        }
+        memoryByCustomerId.set(customerId, nextEntries);
+
+        return new Response(JSON.stringify({ updated: entries.length }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+
+      if (init.method === "DELETE") {
+        const key = decodeURIComponent(keyParts.join("/"));
+        const nextEntries = existingEntries.filter((entry) => entry.key !== key);
+        const deleted = nextEntries.length !== existingEntries.length;
+        memoryByCustomerId.set(customerId, nextEntries);
+
+        return new Response(
+          JSON.stringify(deleted ? { deleted: true } : { detail: "Memory entry not found" }),
+          {
+            status: deleted ? 200 : 404,
+            headers: { "Content-Type": "application/json" },
+          },
+        );
+      }
     }
 
     if (pathname === "/chat/stream") {
