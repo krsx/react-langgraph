@@ -42,10 +42,27 @@ def _check_ollama(base_url: str) -> dict:
         return {"available": False, "models": []}
 
 
+def _restrict_to_default_model(provider_state: dict, default_model: str) -> dict:
+    models = provider_state.get("models", [])
+    available = bool(provider_state.get("available")) and default_model in models
+
+    return {
+        "available": available,
+        "models": [default_model] if available else [],
+        "default_model": default_model if available else None,
+    }
+
+
 @router.get("/providers")
 def get_providers() -> dict:
     cfg = get_config()
     return {
-        "openrouter": _check_openrouter(cfg.OPENROUTER_API_KEY),
-        "ollama": _check_ollama(cfg.OLLAMA_BASE_URL),
+        "openrouter": _restrict_to_default_model(
+            _check_openrouter(cfg.OPENROUTER_API_KEY),
+            cfg.DEFAULT_MODEL,
+        ),
+        "ollama": _restrict_to_default_model(
+            _check_ollama(cfg.OLLAMA_BASE_URL),
+            cfg.OLLAMA_DEFAULT_MODEL,
+        ),
     }

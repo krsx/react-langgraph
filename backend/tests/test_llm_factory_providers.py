@@ -71,26 +71,26 @@ def test_create_llm_no_provider_defaults_to_openrouter(monkeypatch):
     assert isinstance(llm, ChatOpenAI)
 
 
-# ── Cycle 4: Model override is respected ─────────────────────────────────────
+# ── Cycle 4: .env model is authoritative ─────────────────────────────────────
 
-def test_create_llm_ollama_uses_specified_model(monkeypatch):
+def test_create_llm_ollama_ignores_specified_model(monkeypatch):
     for k, v in BASE_ENV.items():
         monkeypatch.setenv(k, v)
 
     from llm_factory import create_llm
     llm = create_llm(provider="ollama", model="llama3.2")
 
-    assert llm.model == "llama3.2"
+    assert llm.model == "qwen3:4b"
 
 
-def test_create_llm_openrouter_uses_specified_model(monkeypatch):
+def test_create_llm_openrouter_ignores_specified_model(monkeypatch):
     for k, v in BASE_ENV.items():
         monkeypatch.setenv(k, v)
 
     from llm_factory import create_llm
     llm = create_llm(provider="openrouter", model="anthropic/claude-3-haiku")
 
-    assert llm.model_name == "anthropic/claude-3-haiku"
+    assert llm.model_name == "google/gemini-2.5-flash"
 
 
 def test_create_llm_ollama_uses_default_model_when_none(monkeypatch):

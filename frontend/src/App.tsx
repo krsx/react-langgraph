@@ -72,7 +72,6 @@ export default function App() {
           customer_id: state.activeCustomerId,
           thread_id: state.view.threadId ?? undefined,
           provider: state.selectedProvider ?? undefined,
-          model: state.selectedModel ?? undefined,
         },
         (event) => {
           dispatch({ type: "stream_event_received", turnId, event });

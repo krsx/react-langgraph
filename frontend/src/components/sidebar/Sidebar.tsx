@@ -82,6 +82,7 @@ export function Sidebar({
         aria-label="Model"
         value={selectedModel ?? ""}
         onChange={(event) => onModelSelect(event.target.value)}
+        disabled
       >
         {availableModels.map((model) => (
           <option key={model} value={model}>

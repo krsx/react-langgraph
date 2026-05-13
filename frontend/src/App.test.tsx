@@ -11,8 +11,8 @@ describe("App shell", () => {
         { customer_id: 2, name: "Bea Foo", email: "bea@example.com", created_at: "2026-05-01" },
       ],
       providers: {
-        openrouter: { available: true, models: ["openai/gpt-4o"] },
-        ollama: { available: false, models: [] },
+        openrouter: { available: true, models: ["openai/gpt-4o"], default_model: "openai/gpt-4o" },
+        ollama: { available: false, models: [], default_model: null },
       },
       sessions: [
         { thread_id: "thread-1", customer_id: 1, created_at: "2026-05-01", first_message: "Order status?" },
@@ -45,7 +45,7 @@ describe("App shell", () => {
         { customer_id: 1, name: "Ahmad Rifqi", email: "ahmad@example.com", created_at: "2026-05-01" },
       ],
       providers: {
-        openrouter: { available: true, models: ["openai/gpt-4o"] },
+        openrouter: { available: true, models: ["openai/gpt-4o"], default_model: "openai/gpt-4o" },
       },
       sessions: [
         { thread_id: "thread-1", customer_id: 1, created_at: "2026-05-01", first_message: "Order status?" },
@@ -80,7 +80,7 @@ describe("App shell", () => {
         { customer_id: 1, name: "Ahmad Rifqi", email: "ahmad@example.com", created_at: "2026-05-01" },
       ],
       providers: {
-        openrouter: { available: true, models: ["openai/gpt-4o"] },
+        openrouter: { available: true, models: ["openai/gpt-4o"], default_model: "openai/gpt-4o" },
       },
       sessions: [],
       streamRuns: [
@@ -123,8 +123,8 @@ describe("App shell", () => {
     expect(requests[0]).toMatchObject({
       customer_id: 1,
       provider: "openrouter",
-      model: "openai/gpt-4o",
     });
+    expect(requests[0].model).toBeUndefined();
     expect(requests[0].thread_id).toBeUndefined();
     expect(requests[1].thread_id).toBe("thread-1");
   });
@@ -135,7 +135,7 @@ describe("App shell", () => {
         { customer_id: 1, name: "Ahmad Rifqi", email: "ahmad@example.com", created_at: "2026-05-01" },
       ],
       providers: {
-        openrouter: { available: true, models: ["openai/gpt-4o"] },
+        openrouter: { available: true, models: ["openai/gpt-4o"], default_model: "openai/gpt-4o" },
       },
       sessions: [],
       streamRuns: [
@@ -194,7 +194,7 @@ describe("App shell", () => {
         { customer_id: 1, name: "Ahmad Rifqi", email: "ahmad@example.com", created_at: "2026-05-01" },
       ],
       providers: {
-        openrouter: { available: true, models: ["openai/gpt-4o"] },
+        openrouter: { available: true, models: ["openai/gpt-4o"], default_model: "openai/gpt-4o" },
       },
       sessions: [],
       streamRuns: [
@@ -244,7 +244,7 @@ describe("App shell", () => {
         { customer_id: 1, name: "Ahmad Rifqi", email: "ahmad@example.com", created_at: "2026-05-01" },
       ],
       providers: {
-        openrouter: { available: true, models: ["openai/gpt-4o"] },
+        openrouter: { available: true, models: ["openai/gpt-4o"], default_model: "openai/gpt-4o" },
       },
       sessions: [],
     });

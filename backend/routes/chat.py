@@ -6,8 +6,9 @@ from fastapi import APIRouter
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
+from config import get_config
 from db.connection import get_connection
-from graph.graph import graph
+from graph.graph import get_async_graph
 
 router = APIRouter(prefix="/chat")
 
@@ -58,6 +59,9 @@ def _persist_ai_message(thread_id: str, content: str) -> None:
 
 async def _event_stream(req: ChatRequest) -> AsyncGenerator[str, None]:
     thread_id = req.thread_id or str(uuid.uuid4())
+    cfg = get_config()
+    provider = req.provider or "openrouter"
+    model = cfg.OLLAMA_DEFAULT_MODEL if provider == "ollama" else cfg.DEFAULT_MODEL
 
     input_state = {
         "messages": [{"role": "human", "content": req.message}],
@@ -67,8 +71,8 @@ async def _event_stream(req: ChatRequest) -> AsyncGenerator[str, None]:
         "configurable": {
             "thread_id": thread_id,
             "customer_id": req.customer_id,
-            "provider": req.provider,
-            "model": req.model,
+            "provider": provider,
+            "model": model,
         }
     }
 
@@ -77,6 +81,7 @@ async def _event_stream(req: ChatRequest) -> AsyncGenerator[str, None]:
     _persist_session_start(thread_id, req.customer_id, req.message)
 
     try:
+        graph = await get_async_graph()
         async for event in graph.astream_events(input_state, config=config, version="v2"):
             name = event.get("name", "")
             kind = event.get("event", "")

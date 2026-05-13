@@ -8,9 +8,20 @@ from fastapi.testclient import TestClient
 
 def test_providers_endpoint_returns_both_providers():
     with patch("routes.providers._check_openrouter") as mock_or, \
-         patch("routes.providers._check_ollama") as mock_oll:
+         patch("routes.providers._check_ollama") as mock_oll, \
+         patch("routes.providers.get_config") as mock_cfg:
         mock_or.return_value = {"available": True, "models": ["google/gemini-2.5-flash"]}
         mock_oll.return_value = {"available": True, "models": ["llama3.2"]}
+        mock_cfg.return_value = type(
+            "Cfg",
+            (),
+            {
+                "OPENROUTER_API_KEY": "sk-test",
+                "OLLAMA_BASE_URL": "http://ollama:11434",
+                "DEFAULT_MODEL": "google/gemini-2.5-flash",
+                "OLLAMA_DEFAULT_MODEL": "llama3.2",
+            },
+        )()
 
         from main import app
         client = TestClient(app)
@@ -20,13 +31,26 @@ def test_providers_endpoint_returns_both_providers():
     data = resp.json()
     assert "openrouter" in data
     assert "ollama" in data
+    assert data["openrouter"]["models"] == ["google/gemini-2.5-flash"]
+    assert data["ollama"]["models"] == ["llama3.2"]
 
 
 def test_providers_response_has_available_and_models_keys():
     with patch("routes.providers._check_openrouter") as mock_or, \
-         patch("routes.providers._check_ollama") as mock_oll:
+         patch("routes.providers._check_ollama") as mock_oll, \
+         patch("routes.providers.get_config") as mock_cfg:
         mock_or.return_value = {"available": True, "models": ["model-a"]}
         mock_oll.return_value = {"available": False, "models": []}
+        mock_cfg.return_value = type(
+            "Cfg",
+            (),
+            {
+                "OPENROUTER_API_KEY": "sk-test",
+                "OLLAMA_BASE_URL": "http://ollama:11434",
+                "DEFAULT_MODEL": "model-a",
+                "OLLAMA_DEFAULT_MODEL": "llama3.2",
+            },
+        )()
 
         from main import app
         client = TestClient(app)
@@ -36,15 +60,27 @@ def test_providers_response_has_available_and_models_keys():
     for provider in ("openrouter", "ollama"):
         assert "available" in data[provider], f"{provider} missing 'available'"
         assert "models" in data[provider], f"{provider} missing 'models'"
+        assert "default_model" in data[provider], f"{provider} missing 'default_model'"
 
 
 # ── Cycle 2: Ollama unreachable → available: False, empty models ──────────────
 
 def test_ollama_unavailable_returns_false_not_crash():
     with patch("routes.providers._check_openrouter") as mock_or, \
-         patch("routes.providers._check_ollama") as mock_oll:
+         patch("routes.providers._check_ollama") as mock_oll, \
+         patch("routes.providers.get_config") as mock_cfg:
         mock_or.return_value = {"available": True, "models": ["google/gemini-2.5-flash"]}
         mock_oll.return_value = {"available": False, "models": []}
+        mock_cfg.return_value = type(
+            "Cfg",
+            (),
+            {
+                "OPENROUTER_API_KEY": "sk-test",
+                "OLLAMA_BASE_URL": "http://ollama:11434",
+                "DEFAULT_MODEL": "google/gemini-2.5-flash",
+                "OLLAMA_DEFAULT_MODEL": "llama3.2",
+            },
+        )()
 
         from main import app
         client = TestClient(app)
@@ -54,6 +90,38 @@ def test_ollama_unavailable_returns_false_not_crash():
     data = resp.json()
     assert data["ollama"]["available"] is False
     assert data["ollama"]["models"] == []
+    assert data["ollama"]["default_model"] is None
+
+
+def test_providers_default_model_only_returned_when_available():
+    with patch("routes.providers._check_openrouter") as mock_or, \
+         patch("routes.providers._check_ollama") as mock_oll, \
+         patch("routes.providers.get_config") as mock_cfg:
+        mock_or.return_value = {"available": True, "models": ["openai/gpt-4o"]}
+        mock_oll.return_value = {"available": True, "models": ["qwen3:4b"]}
+        mock_cfg.return_value = type(
+            "Cfg",
+            (),
+            {
+                "OPENROUTER_API_KEY": "sk-test",
+                "OLLAMA_BASE_URL": "http://ollama:11434",
+                "DEFAULT_MODEL": "google/gemini-2.5-flash",
+                "OLLAMA_DEFAULT_MODEL": "qwen3.5:9b",
+            },
+        )()
+
+        from main import app
+        client = TestClient(app)
+        resp = client.get("/providers")
+
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["openrouter"]["available"] is False
+    assert data["ollama"]["available"] is False
+    assert data["openrouter"]["models"] == []
+    assert data["ollama"]["models"] == []
+    assert data["openrouter"]["default_model"] is None
+    assert data["ollama"]["default_model"] is None
 
 
 # ── Cycle 3: _check_ollama returns False when HTTP fails ─────────────────────

@@ -1,4 +1,4 @@
-"""Tests that chat /stream forwards provider/model to graph configurable (issue #11)."""
+"""Tests that chat /stream resolves provider/model from server config (issue #11)."""
 import json
 import pytest
 from unittest.mock import patch, AsyncMock
@@ -29,9 +29,9 @@ async def _empty_stream(*args, **kwargs):
     yield
 
 
-# ── Cycle 1: provider and model are forwarded into configurable ───────────────
+# ── Cycle 1: provider is forwarded and model is resolved from env ─────────────
 
-def test_provider_forwarded_to_graph_configurable():
+def test_provider_uses_env_default_model_in_graph_configurable():
     captured_configs = []
 
     async def _capturing_stream(input_state, config, **kwargs):
@@ -39,7 +39,18 @@ def test_provider_forwarded_to_graph_configurable():
         return
         yield
 
-    with patch("routes.chat.graph") as mock_graph:
+    cfg = type(
+        "Cfg",
+        (),
+        {
+            "DEFAULT_MODEL": "google/gemini-2.5-flash",
+            "OLLAMA_DEFAULT_MODEL": "qwen3.5:9b",
+        },
+    )()
+
+    with patch("routes.chat.get_async_graph", new=AsyncMock()) as get_async_graph, \
+         patch("routes.chat.get_config", return_value=cfg):
+        mock_graph = get_async_graph.return_value
         mock_graph.astream_events = _capturing_stream
         from main import app
         from fastapi.testclient import TestClient
@@ -53,10 +64,10 @@ def test_provider_forwarded_to_graph_configurable():
     assert captured_configs, "graph was never called"
     cfg = captured_configs[0]
     assert cfg["configurable"]["provider"] == "ollama"
-    assert cfg["configurable"]["model"] == "llama3"
+    assert cfg["configurable"]["model"] == "qwen3.5:9b"
 
 
-def test_no_provider_leaves_configurable_none():
+def test_no_provider_uses_openrouter_env_default_model():
     captured_configs = []
 
     async def _capturing_stream(input_state, config, **kwargs):
@@ -64,7 +75,18 @@ def test_no_provider_leaves_configurable_none():
         return
         yield
 
-    with patch("routes.chat.graph") as mock_graph:
+    cfg = type(
+        "Cfg",
+        (),
+        {
+            "DEFAULT_MODEL": "google/gemini-2.5-flash",
+            "OLLAMA_DEFAULT_MODEL": "qwen3.5:9b",
+        },
+    )()
+
+    with patch("routes.chat.get_async_graph", new=AsyncMock()) as get_async_graph, \
+         patch("routes.chat.get_config", return_value=cfg):
+        mock_graph = get_async_graph.return_value
         mock_graph.astream_events = _capturing_stream
         from main import app
         from fastapi.testclient import TestClient
@@ -76,5 +98,5 @@ def test_no_provider_leaves_configurable_none():
         )
 
     cfg = captured_configs[0]
-    assert cfg["configurable"].get("provider") is None
-    assert cfg["configurable"].get("model") is None
+    assert cfg["configurable"].get("provider") == "openrouter"
+    assert cfg["configurable"].get("model") == "google/gemini-2.5-flash"

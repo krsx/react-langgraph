@@ -8,6 +8,7 @@ export type Customer = {
 export type ProviderState = {
   available: boolean;
   models: string[];
+  default_model?: string | null;
 };
 
 export type ProviderCatalog = Record<string, ProviderState>;

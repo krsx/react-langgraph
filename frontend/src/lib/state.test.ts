@@ -5,10 +5,12 @@ const providers: ProviderCatalog = {
   openrouter: {
     available: true,
     models: ["openai/gpt-4o", "google/gemini-2.5-flash"],
+    default_model: "google/gemini-2.5-flash",
   },
   ollama: {
     available: false,
     models: [],
+    default_model: null,
   },
 };
 
@@ -57,10 +59,12 @@ describe("appReducer", () => {
         openrouter: {
           available: true,
           models: ["openai/gpt-4o"],
+          default_model: "openai/gpt-4o",
         },
         ollama: {
           available: true,
           models: ["qwen3:4b"],
+          default_model: "qwen3:4b",
         },
       },
       sessions: [],
@@ -74,6 +78,18 @@ describe("appReducer", () => {
     expect(nextState.selectedProvider).toBe("ollama");
     expect(nextState.selectedModel).toBe("qwen3:4b");
     expect(nextState.view.threadId).toBeNull();
+  });
+
+  it("prefers the provider default model during bootstrap", () => {
+    const state = appReducer(createInitialState(), {
+      type: "bootstrap_loaded",
+      customers: [{ customer_id: 1, name: "Ahmad", email: "ahmad@example.com", created_at: "2026-05-01" }],
+      providers,
+      sessions: [],
+    });
+
+    expect(state.selectedProvider).toBe("openrouter");
+    expect(state.selectedModel).toBe("google/gemini-2.5-flash");
   });
 
   it("keeps partial tokens out of committed assistant history on failure", () => {
@@ -123,6 +139,7 @@ describe("appReducer", () => {
         openrouter: {
           available: true,
           models: ["openai/gpt-4o", "google/gemini-2.5-flash"],
+          default_model: "google/gemini-2.5-flash",
         },
       },
       sessions: [],

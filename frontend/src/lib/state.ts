@@ -116,6 +116,10 @@ function chooseModel(provider: ProviderState | undefined, previousModel: string 
     return previousModel;
   }
 
+  if (provider.default_model && provider.models.includes(provider.default_model)) {
+    return provider.default_model;
+  }
+
   return provider.models[0] ?? null;
 }
 
