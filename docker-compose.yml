@@ -46,6 +46,16 @@ services:
       retries: 3
       start_period: 60s
 
+  frontend:
+    build:
+      context: ./frontend
+      target: builder
+    command: npm run dev -- --host 0.0.0.0
+    ports:
+      - "5173:5173"
+    depends_on:
+      - backend
+
 volumes:
   mysql_data:
   ollama_data:
