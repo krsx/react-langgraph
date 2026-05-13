@@ -1,6 +1,6 @@
 """Tests for session persistence during /chat/stream (issue #10)."""
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 from fastapi.testclient import TestClient
 
@@ -37,8 +37,9 @@ def _make_mock_conn():
 def test_chat_stream_creates_session_record():
     conn, cursor = _make_mock_conn()
 
-    with patch("routes.chat.graph") as mock_graph, \
+    with patch("routes.chat.get_async_graph", new=AsyncMock()) as get_async_graph, \
          patch("routes.chat.get_connection", return_value=conn):
+        mock_graph = get_async_graph.return_value
         mock_graph.astream_events = _empty_stream
         from main import app
         client = TestClient(app)
@@ -55,8 +56,9 @@ def test_chat_stream_creates_session_record():
 def test_chat_stream_inserts_human_message():
     conn, cursor = _make_mock_conn()
 
-    with patch("routes.chat.graph") as mock_graph, \
+    with patch("routes.chat.get_async_graph", new=AsyncMock()) as get_async_graph, \
          patch("routes.chat.get_connection", return_value=conn):
+        mock_graph = get_async_graph.return_value
         mock_graph.astream_events = _empty_stream
         from main import app
         client = TestClient(app)
@@ -72,8 +74,9 @@ def test_chat_stream_inserts_human_message():
 def test_chat_stream_inserts_ai_response():
     conn, cursor = _make_mock_conn()
 
-    with patch("routes.chat.graph") as mock_graph, \
+    with patch("routes.chat.get_async_graph", new=AsyncMock()) as get_async_graph, \
          patch("routes.chat.get_connection", return_value=conn):
+        mock_graph = get_async_graph.return_value
         mock_graph.astream_events = _make_response_stream("t1")
         from main import app
         client = TestClient(app)

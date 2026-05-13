@@ -1,13 +1,23 @@
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from graph.graph import close_async_graph
 from routes.chat import router as chat_router
 from routes.data import router as data_router
 from routes.memory import router as memory_router
 from routes.providers import router as providers_router
 from routes.sessions import router as sessions_router
 
-app = FastAPI(title="React LangGraph Backend")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    yield
+    await close_async_graph()
+
+
+app = FastAPI(title="React LangGraph Backend", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,

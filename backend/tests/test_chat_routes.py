@@ -1,8 +1,10 @@
 """Tests for POST /chat/stream SSE endpoint (issue #9)."""
 
+import asyncio
+import importlib
 import json
 import pytest
-from unittest.mock import patch
+from unittest.mock import AsyncMock, MagicMock, patch
 from fastapi.testclient import TestClient
 
 
@@ -106,7 +108,8 @@ def _make_full_stream(thread_id: str):
 # ── Cycle 1: Endpoint returns SSE content-type ───────────────────────────────
 
 def test_chat_stream_returns_sse_content_type():
-    with patch("routes.chat.graph") as mock_graph:
+    with patch("routes.chat.get_async_graph", new=AsyncMock()) as get_async_graph:
+        mock_graph = get_async_graph.return_value
         mock_graph.astream_events = _empty_stream
         from main import app
 
@@ -139,7 +142,8 @@ def test_cors_allows_localhost_5173():
 def test_new_session_generates_uuid_thread_id_in_first_event():
     import re
 
-    with patch("routes.chat.graph") as mock_graph:
+    with patch("routes.chat.get_async_graph", new=AsyncMock()) as get_async_graph:
+        mock_graph = get_async_graph.return_value
         mock_graph.astream_events = _empty_stream
         from main import app
 
@@ -162,7 +166,8 @@ def test_new_session_generates_uuid_thread_id_in_first_event():
 def test_existing_session_echoes_thread_id():
     provided_id = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
 
-    with patch("routes.chat.graph") as mock_graph:
+    with patch("routes.chat.get_async_graph", new=AsyncMock()) as get_async_graph:
+        mock_graph = get_async_graph.return_value
         mock_graph.astream_events = _empty_stream
         from main import app
 
@@ -182,7 +187,8 @@ def test_existing_session_echoes_thread_id():
 def test_all_sse_event_types_emitted_on_full_graph_run():
     fixed_thread_id = "11111111-2222-3333-4444-555555555555"
 
-    with patch("routes.chat.graph") as mock_graph:
+    with patch("routes.chat.get_async_graph", new=AsyncMock()) as get_async_graph:
+        mock_graph = get_async_graph.return_value
         mock_graph.astream_events = _make_full_stream(fixed_thread_id)
         from main import app
 
@@ -220,7 +226,8 @@ def test_all_sse_event_types_emitted_on_full_graph_run():
 def test_sse_event_data_shapes():
     fixed_thread_id = "11111111-2222-3333-4444-555555555555"
 
-    with patch("routes.chat.graph") as mock_graph:
+    with patch("routes.chat.get_async_graph", new=AsyncMock()) as get_async_graph:
+        mock_graph = get_async_graph.return_value
         mock_graph.astream_events = _make_full_stream(fixed_thread_id)
         from main import app
 
@@ -269,7 +276,8 @@ def test_graph_error_yields_error_sse_event():
         raise RuntimeError("graph exploded")
         yield  # noqa: unreachable
 
-    with patch("routes.chat.graph") as mock_graph:
+    with patch("routes.chat.get_async_graph", new=AsyncMock()) as get_async_graph:
+        mock_graph = get_async_graph.return_value
         mock_graph.astream_events = _exploding_stream
         from main import app
 
@@ -283,3 +291,53 @@ def test_graph_error_yields_error_sse_event():
     error_data = next(e["data"] for e in events if e["event"] == "error")
     assert "error" in error_data
     assert "graph exploded" in error_data["error"]
+
+
+def test_chat_stream_real_async_graph_path_avoids_sync_sqlite_error(monkeypatch):
+    graph_module = importlib.import_module("graph.graph")
+
+    class _Conn:
+        def cursor(self, *args, **kwargs):
+            cursor = MagicMock()
+            cursor.rowcount = 0
+            return cursor
+
+        def commit(self):
+            pass
+
+        def close(self):
+            pass
+
+    from langchain_core.messages import AIMessage
+
+    asyncio.run(graph_module.close_async_graph())
+    monkeypatch.setattr(graph_module, "memory_loader", lambda state: {"memory_context": []})
+    monkeypatch.setattr(
+        graph_module,
+        "planner",
+        lambda state, config: {"messages": [AIMessage(content="stub route response")]},
+    )
+    monkeypatch.setattr(
+        graph_module,
+        "verifier",
+        lambda state: {
+            "verification": {"valid": True, "checks": [], "override_message": None},
+            "tool_results": [],
+        },
+    )
+    monkeypatch.setattr(graph_module, "memory_update", lambda state: {})
+
+    try:
+        with patch("routes.chat.get_connection", return_value=_Conn()):
+            from main import app
+
+            client = TestClient(app)
+            resp = client.post("/chat/stream", json={"message": "hello", "customer_id": 1})
+
+        assert resp.status_code == 200
+        assert "The SqliteSaver does not support async methods" not in resp.text
+
+        async_graph = asyncio.run(graph_module.get_async_graph())
+        assert type(async_graph.checkpointer).__name__ == "AsyncSqliteSaver"
+    finally:
+        asyncio.run(graph_module.close_async_graph())
