@@ -3,6 +3,7 @@ import { AppProvider } from '@/state/context'
 import { Sidebar } from '@/components/sidebar/Sidebar'
 import { ChatPanel } from '@/components/chat/ChatPanel'
 import { RightPanelShell } from './RightPanelShell'
+import { AgentProcessPanel } from '@/components/process/AgentProcessPanel'
 
 export function AppShell() {
   const [rightCollapsed, setRightCollapsed] = useState(false)
@@ -15,7 +16,9 @@ export function AppShell() {
         <RightPanelShell
           isCollapsed={rightCollapsed}
           onToggle={() => setRightCollapsed((v) => !v)}
-        />
+        >
+          <AgentProcessPanel />
+        </RightPanelShell>
       </div>
     </AppProvider>
   )

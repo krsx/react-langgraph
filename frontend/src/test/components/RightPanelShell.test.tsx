@@ -4,14 +4,14 @@ import userEvent from '@testing-library/user-event'
 import { RightPanelShell } from '@/components/layout/RightPanelShell'
 
 describe('RightPanelShell', () => {
-  it('shows placeholder text when not collapsed', () => {
-    render(<RightPanelShell isCollapsed={false} onToggle={() => {}} />)
-    expect(screen.getByText(/agent process/i)).toBeInTheDocument()
+  it('renders children when not collapsed', () => {
+    render(<RightPanelShell isCollapsed={false} onToggle={() => {}}><span>panel content</span></RightPanelShell>)
+    expect(screen.getByText('panel content')).toBeInTheDocument()
   })
 
-  it('hides placeholder when collapsed', () => {
-    render(<RightPanelShell isCollapsed={true} onToggle={() => {}} />)
-    expect(screen.queryByText(/agent process/i)).not.toBeInTheDocument()
+  it('hides children when collapsed', () => {
+    render(<RightPanelShell isCollapsed={true} onToggle={() => {}}><span>panel content</span></RightPanelShell>)
+    expect(screen.queryByText('panel content')).not.toBeInTheDocument()
   })
 
   it('calls onToggle when toggle button is clicked', async () => {
