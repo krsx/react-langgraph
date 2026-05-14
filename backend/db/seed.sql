@@ -86,3 +86,34 @@ INSERT INTO customer_memory (customer_id, `key`, value) VALUES
 INSERT INTO complaints (customer_id, order_id, issue, status) VALUES
     (1, 5678, 'Package arrived two days later than promised', 'resolved'),
     (1, 7890, 'Repeated late delivery on delivered order',    'closed');
+
+-- ─── Customer 2 (Jane Doe) — mirrors the 11 test cases with different IDs ───
+
+-- Seed orders for customer 2
+-- test 1: intent parsing — order in transit (pending)
+-- test 2: order lookup (processing)
+-- test 4: refund eligible (delivered)
+-- test 5: complaint target (delivered)
+-- test 6: conditional refund — must be delivered
+-- order 0000 intentionally absent (test 11: verifier rejects)
+INSERT INTO orders (order_id, customer_id, product_name, status, order_date, delivery_date) VALUES
+    (20001, 2, 'Bluetooth Speaker',  'pending',    '2026-04-10 08:00:00', NULL),
+    (20002, 2, 'Ergonomic Chair',    'processing', '2026-04-12 09:00:00', NULL),
+    (20003, 2, 'Smart Watch',        'delivered',  '2026-03-05 07:00:00', '2026-03-12 15:00:00'),
+    (20004, 2, 'Air Purifier',       'delivered',  '2026-03-18 10:00:00', '2026-03-25 13:00:00'),
+    (20005, 2, 'Standing Desk',      'delivered',  '2026-02-20 06:00:00', '2026-02-28 11:00:00');
+
+-- Seed customer_memory for customer 2
+-- test 8:  long-term memory read — prior delivery problems
+-- test 10: personalization — repeated late delivery pattern
+INSERT INTO customer_memory (customer_id, `key`, value) VALUES
+    (2, 'delivery_history_20001', 'Order 20001 shipping was delayed 5 days due to stock shortage'),
+    (2, 'delivery_history_20002', 'Order 20002 was rerouted and arrived 3 days late'),
+    (2, 'late_delivery_pattern',  'Customer has experienced repeated late deliveries across orders'),
+    (2, 'complaint_count',        '2');
+
+-- Seed complaints for customer 2
+-- test 8: complaint history available for memory/personalization lookups
+INSERT INTO complaints (customer_id, order_id, issue, status) VALUES
+    (2, 20003, 'Received wrong color variant of item',         'resolved'),
+    (2, 20005, 'Delivery arrived 4 days past the promised date', 'closed');

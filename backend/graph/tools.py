@@ -76,11 +76,20 @@ def refund(order_id: int, config: RunnableConfig) -> dict:
 
 @tool
 def complaint_logger(order_id: int, issue: str, config: RunnableConfig) -> dict:
-    """Log a complaint about an order. Returns the new complaint ID."""
+    """Log a complaint about an order. IMPORTANT: always call order_lookup first to verify the order exists and belongs to the customer before asking the user for the issue description. Only succeeds if the order belongs to the current customer. Returns the new complaint ID."""
     customer_id = config["configurable"]["customer_id"]
     conn = get_connection()
     try:
-        cursor = conn.cursor()
+        cursor = conn.cursor(dictionary=True)
+        cursor.execute(
+            "SELECT customer_id FROM orders WHERE order_id = %s",
+            (order_id,),
+        )
+        row = cursor.fetchone()
+        if row is None:
+            return {"error": f"Order {order_id} not found."}
+        if row["customer_id"] != customer_id:
+            return {"error": f"Order {order_id} does not belong to this customer."}
         cursor.execute(
             "INSERT INTO complaints (customer_id, order_id, issue, status) VALUES (%s, %s, %s, 'open')",
             (customer_id, order_id, issue),
