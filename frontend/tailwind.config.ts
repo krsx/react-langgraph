@@ -1,4 +1,5 @@
 import type { Config } from "tailwindcss";
+import typography from "@tailwindcss/typography";
 
 export default {
   content: ["./index.html", "./src/**/*.{ts,tsx}"],
@@ -30,14 +31,18 @@ export default {
           DEFAULT: "hsl(var(--destructive))",
           foreground: "hsl(var(--destructive-foreground))",
         },
-      },
-      fontFamily: {
-        sans: ["'Space Grotesk'", "ui-sans-serif", "system-ui", "sans-serif"],
-      },
-      boxShadow: {
-        panel: "0 20px 45px rgba(15, 23, 42, 0.12)",
+        sidebar: {
+          DEFAULT: "hsl(var(--sidebar))",
+          foreground: "hsl(var(--sidebar-foreground))",
+          primary: "hsl(var(--sidebar-primary))",
+          "primary-foreground": "hsl(var(--sidebar-primary-foreground))",
+          accent: "hsl(var(--sidebar-accent))",
+          "accent-foreground": "hsl(var(--sidebar-accent-foreground))",
+          border: "hsl(var(--sidebar-border))",
+          ring: "hsl(var(--sidebar-ring))",
+        },
       },
     },
   },
-  plugins: [],
+  plugins: [typography],
 } satisfies Config;

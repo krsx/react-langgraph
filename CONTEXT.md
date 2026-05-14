@@ -12,29 +12,35 @@ _Avoid_: Client, buyer, account
 A single evaluator-agent conversation conducted in the context of exactly one **Customer**.
 _Avoid_: Thread, chat, conversation ID
 
-**Right Panel**:
-The shell region that hosts evaluator-facing inspection and control panels beside the chat.
-_Avoid_: Sidebar, drawer, process panel
+**App Sidebar**:
+The collapsible left-edge navigation (shadcn Sidebar) that holds session history, new-chat action, and page links (Chat, Data Explorer, Memory Manager).
+_Avoid_: Left panel, navigation bar
+
+**Chat Header**:
+The horizontal bar above the conversation area containing the Customer, Provider, and Model selectors.
+_Avoid_: Toolbar, config bar
 
 **Agent Process Panel**:
-The current-turn trace that shows how the agent reasoned, selected tools, and verified the reply.
-_Avoid_: Debug log, backend trace
+The collapsible right-edge pane beside the chat that shows the current-turn trace: how the agent reasoned, selected tools, and verified the reply.
+_Avoid_: Right panel, debug log, backend trace
 
 **Data Explorer**:
-A read-only panel for inspecting customer-service tables to verify agent side effects.
-_Avoid_: Admin console, database viewer
+A dedicated page (accessed via App Sidebar) with tabbed CRUD views for Customers, Orders, and Complaints.
+_Avoid_: Database, admin console, database viewer
 
 **Memory Manager**:
-A panel for viewing and editing long-term customer memory entries.
+A dedicated page (accessed via App Sidebar) for viewing and editing long-term customer memory entries.
 _Avoid_: Settings, profile editor
 
 ## Relationships
 
 - A **Conversation Session** belongs to exactly one **Customer**
 - A **Customer** may have many **Conversation Sessions**
-- The **Right Panel** may host the **Agent Process Panel**, **Data Explorer**, and **Memory Manager**
-- The **Agent Process Panel** shows one turn within a **Conversation Session**, not the whole session history
-- The **Memory Manager** edits memory entries for exactly one active **Customer**
+- The **App Sidebar** provides navigation to Chat, **Data Explorer**, and **Memory Manager** pages
+- The **Chat Header** displays the active **Customer**, Provider, and Model selectors above the conversation
+- The **Agent Process Panel** sits beside the chat and shows one turn within a **Conversation Session**, not the whole session history
+- The **Data Explorer** page has three tabs: Customers, Orders, Complaints — each with full CRUD
+- The **Memory Manager** page edits memory entries for exactly one selected **Customer**
 
 ## Example dialogue
 
@@ -47,4 +53,4 @@ _Avoid_: Settings, profile editor
 ## Flagged ambiguities
 
 - "thread" was being used to mean **Conversation Session**. Resolved: the canonical concept is **Conversation Session**; any thread ID is only the transport identifier for that session.
-- "right panel" was being used to mean both the shell region and the specific process view. Resolved: **Right Panel** is the region; **Agent Process Panel**, **Data Explorer**, and **Memory Manager** are separate hosted panels.
+- "right panel" was being used to mean both the shell region and the specific process view. Resolved: the tabbed Right Panel has been retired. **Agent Process Panel** is now a standalone pane beside the chat. **Data Explorer** and **Memory Manager** are separate pages accessed via the **App Sidebar**.
