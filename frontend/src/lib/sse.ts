@@ -1,4 +1,4 @@
-import type { ChatRequest, ChatStreamEvent } from "./types";
+import type { ChatRequest, ChatStreamEvent, JsonValue } from "./types";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
 
@@ -68,7 +68,8 @@ function parsePayload(event: Frame): ChatStreamEvent | null {
       return {
         type: "tool_result",
         thread_id,
-        results: typeof base.results === "string" ? base.results : "",
+        tool_name: typeof base.tool_name === "string" ? base.tool_name : "",
+        results: (base.results as JsonValue | undefined) ?? null,
       };
     case "verifier_result":
       return {
@@ -81,7 +82,12 @@ function parsePayload(event: Frame): ChatStreamEvent | null {
           : null,
       };
     case "memory_updated":
-      return { type: "memory_updated", thread_id };
+      return {
+        type: "memory_updated",
+        thread_id,
+        key: typeof base.key === "string" ? base.key : "",
+        value: typeof base.value === "string" ? base.value : "",
+      };
     case "response_token":
       return {
         type: "response_token",

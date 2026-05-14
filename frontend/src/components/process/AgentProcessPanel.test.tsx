@@ -27,7 +27,12 @@ describe("AgentProcessPanel", () => {
         tool_calls: [{ name: "order_lookup", args: { order_id: 12345 } }],
       },
       { type: "tool_start", thread_id: "thread-1" },
-      { type: "tool_result", thread_id: "thread-1", results: "{'status': 'pending'}" },
+      {
+        type: "tool_result",
+        thread_id: "thread-1",
+        tool_name: "order_lookup",
+        results: { status: "pending" },
+      },
       {
         type: "verifier_result",
         thread_id: "thread-1",
@@ -42,7 +47,12 @@ describe("AgentProcessPanel", () => {
         tool_calls: [{ name: "customer_profile", args: { customer_id: 1 } }],
       },
       { type: "tool_start", thread_id: "thread-1" },
-      { type: "tool_result", thread_id: "thread-1", results: "{'vip': true}" },
+      {
+        type: "tool_result",
+        thread_id: "thread-1",
+        tool_name: "customer_profile",
+        results: { vip: true },
+      },
       {
         type: "verifier_result",
         thread_id: "thread-1",
@@ -66,9 +76,10 @@ describe("AgentProcessPanel", () => {
       "Verifier",
     ]);
 
-    expect(screen.getAllByText("order_lookup")).toHaveLength(2);
-    expect(screen.getAllByText("customer_profile")).toHaveLength(2);
-    expect(screen.getByText("{'status': 'pending'}")).toBeInTheDocument();
+    expect(screen.getAllByText(/order_lookup/)).toHaveLength(2);
+    expect(screen.getAllByText(/customer_profile/)).toHaveLength(2);
+    expect(screen.getByText("Tool order_lookup completed")).toBeInTheDocument();
+    expect(screen.getByText("Tool customer_profile completed")).toBeInTheDocument();
     expect(screen.getByText(/Verifier passed: Used order data/)).toBeInTheDocument();
     expect(screen.getByText(/Verifier failed: Need refund policy verification/)).toBeInTheDocument();
     expect(screen.getByText(/Ask a follow-up question before promising a refund/)).toBeInTheDocument();
@@ -95,5 +106,25 @@ describe("AgentProcessPanel", () => {
 
     expect(plannerCard).toHaveTextContent('"tool_calls": [');
     expect(plannerCard).toHaveTextContent('"order_id": 12345');
+  });
+
+  it("renders tool and memory updates from self-describing stream payloads", () => {
+    renderPanel([
+      {
+        type: "tool_result",
+        thread_id: "thread-1",
+        tool_name: "order_lookup",
+        results: { order_id: 12345, status: "pending" },
+      },
+      {
+        type: "memory_updated",
+        thread_id: "thread-1",
+        key: "last_interaction_summary",
+        value: "User asked to verify order 12345.",
+      },
+    ]);
+
+    expect(screen.getByText(/order_lookup/)).toBeInTheDocument();
+    expect(screen.getByText(/last_interaction_summary/)).toBeInTheDocument();
   });
 });

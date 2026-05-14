@@ -36,9 +36,9 @@ type StepCard =
   | {
       kind: "tool";
       title: string;
+      toolName: string;
       summary: string;
       detail: string;
-      toolCalls: PlannerToolCall[];
     }
   | {
       kind: "verifier";
@@ -59,7 +59,6 @@ function formatJson(value: unknown): string {
 
 function buildStepCards(events: ChatStreamEvent[]): StepCard[] {
   const cards: StepCard[] = [];
-  let latestToolCalls: PlannerToolCall[] = [];
 
   for (const event of events) {
     switch (event.type) {
@@ -78,7 +77,6 @@ function buildStepCards(events: ChatStreamEvent[]): StepCard[] {
         break;
       }
       case "planner_result": {
-        latestToolCalls = event.tool_calls;
         cards.push({
           kind: "planner",
           title: "Planner",
@@ -95,29 +93,34 @@ function buildStepCards(events: ChatStreamEvent[]): StepCard[] {
         cards.push({
           kind: "tool",
           title: "Tool Result",
-          summary: latestToolCalls.length > 0
-            ? `${latestToolCalls.length} planned tool call${latestToolCalls.length === 1 ? "" : "s"} executing`
-            : "Tool execution started",
+          toolName: "",
+          summary: "Tool execution started",
           detail: "Awaiting tool result payload.",
-          toolCalls: latestToolCalls,
         });
         break;
       }
       case "tool_result": {
+        const toolSummary = event.tool_name
+          ? `Tool ${event.tool_name} completed`
+          : "Tool execution completed";
+        const toolDetail = formatJson({
+          tool_name: event.tool_name,
+          results: event.results,
+        });
         const existing = cards[cards.length - 1];
         if (existing?.kind === "tool" && existing.detail === "Awaiting tool result payload.") {
-          existing.summary = event.results;
-          existing.detail = event.results;
-          existing.toolCalls = latestToolCalls;
+          existing.toolName = event.tool_name;
+          existing.summary = toolSummary;
+          existing.detail = toolDetail;
           break;
         }
 
         cards.push({
           kind: "tool",
           title: "Tool Result",
-          summary: event.results,
-          detail: event.results,
-          toolCalls: latestToolCalls,
+          toolName: event.tool_name,
+          summary: toolSummary,
+          detail: toolDetail,
         });
         break;
       }
@@ -142,7 +145,9 @@ function buildStepCards(events: ChatStreamEvent[]): StepCard[] {
         cards.push({
           kind: "memory_updated",
           title: "Memory Updated",
-          summary: "Turn memory update completed",
+          summary: event.key
+            ? `Stored ${event.key} in customer memory`
+            : "Turn memory update completed",
           detail: formatJson(event),
         });
         break;

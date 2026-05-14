@@ -79,14 +79,22 @@ export type PlannerToolCall = {
   args: Record<string, unknown>;
 };
 
+export type JsonValue =
+  | null
+  | boolean
+  | number
+  | string
+  | JsonValue[]
+  | { [key: string]: JsonValue };
+
 export type ChatStreamEvent =
   | { type: "memory_loaded"; thread_id: string; memory_context: MemoryContextEntry[] }
   | { type: "planner_start"; thread_id: string }
   | { type: "planner_result"; thread_id: string; content: string; tool_calls: PlannerToolCall[] }
   | { type: "tool_start"; thread_id: string }
-  | { type: "tool_result"; thread_id: string; results: string }
+  | { type: "tool_result"; thread_id: string; tool_name: string; results: JsonValue }
   | { type: "verifier_result"; thread_id: string; valid: boolean | null; checks: string[]; override_message: string | null }
-  | { type: "memory_updated"; thread_id: string }
+  | { type: "memory_updated"; thread_id: string; key: string; value: string }
   | { type: "response_token"; thread_id: string; token: string }
   | { type: "response_end"; thread_id: string; response: string }
   | { type: "error"; thread_id: string; error: string };

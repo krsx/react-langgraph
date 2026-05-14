@@ -105,6 +105,75 @@ def _make_full_stream(thread_id: str):
     return _stream
 
 
+def _make_single_tool_result_stream():
+    from langchain_core.messages import ToolMessage
+
+    async def _stream(*args, **kwargs):
+        yield {"event": "on_chain_start", "name": "tools", "data": {}}
+        yield {
+            "event": "on_chain_end",
+            "name": "tools",
+            "data": {
+                "output": {
+                    "messages": [
+                        ToolMessage(
+                            content='{"order_id": 12345, "status": "pending"}',
+                            tool_call_id="call_1",
+                            name="order_lookup",
+                        )
+                    ]
+                }
+            },
+        }
+
+    return _stream
+
+
+def _make_multi_tool_result_stream():
+    from langchain_core.messages import ToolMessage
+
+    async def _stream(*args, **kwargs):
+        yield {"event": "on_chain_start", "name": "tools", "data": {}}
+        yield {
+            "event": "on_chain_end",
+            "name": "tools",
+            "data": {
+                "output": {
+                    "messages": [
+                        ToolMessage(
+                            content='{"order_id": 12345, "status": "pending"}',
+                            tool_call_id="call_1",
+                            name="order_lookup",
+                        ),
+                        ToolMessage(
+                            content='{"customer_id": 1, "vip": true}',
+                            tool_call_id="call_2",
+                            name="customer_profile",
+                        ),
+                    ]
+                }
+            },
+        }
+
+    return _stream
+
+
+def _make_memory_updated_stream():
+    async def _stream(*args, **kwargs):
+        yield {
+            "event": "on_chain_end",
+            "name": "memory_update",
+            "data": {
+                "output": {
+                    "key": "last_interaction_summary",
+                    "value": "User asked for refund details.",
+                }
+            },
+        }
+
+    return _stream
+
+
 # ── Cycle 1: Endpoint returns SSE content-type ───────────────────────────────
 
 def test_chat_stream_returns_sse_content_type():
@@ -267,6 +336,97 @@ def test_sse_event_data_shapes():
     re_ev = by_type["response_end"][0]
     assert "response" in re_ev
     assert re_ev["response"] == "Your order is on the way."
+
+
+def test_tool_result_event_includes_tool_name_and_structured_json_results():
+    fixed_thread_id = "11111111-2222-3333-4444-555555555555"
+
+    with patch("routes.chat.get_async_graph", new=AsyncMock()) as get_async_graph:
+        mock_graph = get_async_graph.return_value
+        mock_graph.astream_events = _make_single_tool_result_stream()
+        from main import app
+
+        client = TestClient(app, raise_server_exceptions=True)
+        resp = client.post(
+            "/chat/stream",
+            json={
+                "message": "Where is my order?",
+                "customer_id": 1,
+                "thread_id": fixed_thread_id,
+            },
+        )
+
+    events = parse_sse(resp.text)
+    tool_result = next(e["data"] for e in events if e["event"] == "tool_result")
+
+    assert tool_result["thread_id"] == fixed_thread_id
+    assert tool_result["tool_name"] == "order_lookup"
+    assert tool_result["results"] == {"order_id": 12345, "status": "pending"}
+    assert not isinstance(tool_result["results"], str)
+
+
+def test_multi_tool_turn_emits_one_tool_result_event_per_tool_message():
+    fixed_thread_id = "11111111-2222-3333-4444-555555555555"
+
+    with patch("routes.chat.get_async_graph", new=AsyncMock()) as get_async_graph:
+        mock_graph = get_async_graph.return_value
+        mock_graph.astream_events = _make_multi_tool_result_stream()
+        from main import app
+
+        client = TestClient(app, raise_server_exceptions=True)
+        resp = client.post(
+            "/chat/stream",
+            json={
+                "message": "Check order and profile",
+                "customer_id": 1,
+                "thread_id": fixed_thread_id,
+            },
+        )
+
+    events = parse_sse(resp.text)
+    tool_results = [e["data"] for e in events if e["event"] == "tool_result"]
+
+    assert len(tool_results) == 2
+    assert tool_results == [
+        {
+            "thread_id": fixed_thread_id,
+            "tool_name": "order_lookup",
+            "results": {"order_id": 12345, "status": "pending"},
+        },
+        {
+            "thread_id": fixed_thread_id,
+            "tool_name": "customer_profile",
+            "results": {"customer_id": 1, "vip": True},
+        },
+    ]
+
+
+def test_memory_updated_event_includes_written_key_and_value():
+    fixed_thread_id = "11111111-2222-3333-4444-555555555555"
+
+    with patch("routes.chat.get_async_graph", new=AsyncMock()) as get_async_graph:
+        mock_graph = get_async_graph.return_value
+        mock_graph.astream_events = _make_memory_updated_stream()
+        from main import app
+
+        client = TestClient(app, raise_server_exceptions=True)
+        resp = client.post(
+            "/chat/stream",
+            json={
+                "message": "Summarize this turn",
+                "customer_id": 1,
+                "thread_id": fixed_thread_id,
+            },
+        )
+
+    events = parse_sse(resp.text)
+    memory_updated = next(e["data"] for e in events if e["event"] == "memory_updated")
+
+    assert memory_updated == {
+        "thread_id": fixed_thread_id,
+        "key": "last_interaction_summary",
+        "value": "User asked for refund details.",
+    }
 
 
 # ── Cycle 7: Graph error yields error SSE event ───────────────────────────────
