@@ -1,5 +1,6 @@
-import { NavLink, Outlet } from "react-router-dom";
-import { Brain, ChevronDown, Database, MessageSquare, Terminal } from "lucide-react";
+import { useNavigate, useLocation, NavLink, Outlet } from "react-router-dom";
+import { Brain, ChevronDown, Database, MessageSquare, Plus, Terminal } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
 import {
   Collapsible,
   CollapsibleContent,
@@ -20,6 +21,9 @@ import {
   SidebarTrigger,
 } from "@/components/ui/sidebar";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { Button } from "@/components/ui/button";
+import { getSessions, getSessionMessages } from "@/lib/api";
+import { useChatContext } from "@/lib/chat-context";
 
 const NAV_ITEMS = [
   { to: "/chat", label: "Chat", icon: MessageSquare },
@@ -28,6 +32,30 @@ const NAV_ITEMS = [
 ] as const;
 
 export function Layout() {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { activeCustomerId, loadHistory, newChat } = useChatContext();
+
+  const { data: sessions = [] } = useQuery({
+    queryKey: ["sessions"],
+    queryFn: getSessions,
+  });
+
+  const visibleSessions = activeCustomerId === null
+    ? []
+    : sessions.filter((s) => s.customer_id === activeCustomerId);
+
+  async function handleSessionClick(threadId: string) {
+    const messages = await getSessionMessages(threadId);
+    loadHistory(threadId, messages);
+    if (location.pathname !== "/chat") navigate("/chat");
+  }
+
+  function handleNewChat() {
+    newChat();
+    if (location.pathname !== "/chat") navigate("/chat");
+  }
+
   return (
     <TooltipProvider>
       <SidebarProvider>
@@ -70,9 +98,41 @@ export function Layout() {
                 </SidebarGroupLabel>
                 <CollapsibleContent>
                   <SidebarGroupContent>
-                    <p className="px-2 py-3 text-xs text-muted-foreground">
-                      No sessions yet.
-                    </p>
+                    <div className="px-2 pt-1 pb-2">
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="w-full justify-start gap-1.5 text-xs"
+                        onClick={handleNewChat}
+                      >
+                        <Plus className="size-3.5" />
+                        New Chat
+                      </Button>
+                    </div>
+
+                    {visibleSessions.length === 0 ? (
+                      <p className="px-2 py-2 text-xs text-muted-foreground">
+                        No sessions yet.
+                      </p>
+                    ) : (
+                      <SidebarMenu>
+                        {visibleSessions.map((session) => (
+                          <SidebarMenuItem key={session.thread_id}>
+                            <SidebarMenuButton
+                              className="h-auto flex-col items-start gap-0 py-2 text-left"
+                              onClick={() => void handleSessionClick(session.thread_id)}
+                            >
+                              <span className="line-clamp-2 text-xs leading-snug">
+                                {session.first_message}
+                              </span>
+                              <span className="text-[10px] text-muted-foreground">
+                                {new Date(session.created_at).toLocaleDateString()}
+                              </span>
+                            </SidebarMenuButton>
+                          </SidebarMenuItem>
+                        ))}
+                      </SidebarMenu>
+                    )}
                   </SidebarGroupContent>
                 </CollapsibleContent>
               </SidebarGroup>
@@ -84,7 +144,7 @@ export function Layout() {
           <header className="flex h-12 items-center gap-2 border-b px-4">
             <SidebarTrigger />
           </header>
-          <main className="flex-1">
+          <main className="flex h-[calc(100vh-3rem)] flex-col">
             <Outlet />
           </main>
         </SidebarInset>

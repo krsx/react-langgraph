@@ -1,10 +1,25 @@
 import { render, screen } from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createMemoryRouter, RouterProvider } from "react-router-dom";
 import { routes } from "./routes";
+import { createMockFetch } from "./test-utils/mockApi";
 
 function renderRouter(path = "/chat") {
+  const { fetchMock } = createMockFetch({
+    customers: [],
+    providers: {},
+    sessions: [],
+  });
+  vi.stubGlobal("fetch", fetchMock);
+
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const router = createMemoryRouter(routes, { initialEntries: [path] });
-  render(<RouterProvider router={router} />);
+
+  render(
+    <QueryClientProvider client={queryClient}>
+      <RouterProvider router={router} />
+    </QueryClientProvider>,
+  );
   return router;
 }
 
@@ -26,9 +41,9 @@ describe("App layout – foundation", () => {
     expect(await screen.findByText("Session History")).toBeInTheDocument();
   });
 
-  it("/chat route renders Chat heading", async () => {
+  it("/chat route renders the chat interface with message composer", async () => {
     renderRouter("/chat");
-    expect(await screen.findByRole("heading", { name: /^chat$/i })).toBeInTheDocument();
+    expect(await screen.findByRole("textbox", { name: /message/i })).toBeInTheDocument();
   });
 
   it("/data route renders Data Explorer heading", async () => {
