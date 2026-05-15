@@ -1,332 +1,568 @@
 import { useState } from "react";
-import { cn } from "../../lib/utils";
-import type {
-  ChatStreamEvent,
-  PlannerToolCall,
-} from "../../lib/types";
-import { Button } from "../ui/button";
+import {
+  Brain,
+  CheckCircle2,
+  Database,
+  Save,
+  Shield,
+  Wrench,
+  XCircle,
+} from "lucide-react";
+import { cn } from "@/lib/utils";
+import type { ChatStreamEvent, JsonValue, MemoryContextEntry, PlannerToolCall } from "@/lib/types";
 
-type AgentProcessPanelProps = {
-  activeCustomerName: string;
-  selectedProvider: string | null;
-  selectedModel: string | null;
-  threadId: string | null;
-  events: ChatStreamEvent[];
-};
+// ── Types ──────────────────────────────────────────────────────────────────────
 
-type AgentProcessPanelWrapperProps = AgentProcessPanelProps & {
-  isOpen: boolean;
-  onToggle: () => void;
-};
+type StepStatus = "success" | "failed" | "running";
 
 type StepCard =
   | {
       kind: "memory_loaded";
-      title: string;
       summary: string;
-      detail: string;
+      context: MemoryContextEntry[];
+      rawJson: string;
+      status: StepStatus;
     }
   | {
       kind: "planner";
-      title: string;
       summary: string;
-      detail: string;
+      content: string;
       toolCalls: PlannerToolCall[];
+      rawJson: string;
+      status: StepStatus;
     }
   | {
       kind: "tool";
-      title: string;
-      toolName: string;
       summary: string;
-      detail: string;
+      toolName: string;
+      results: JsonValue;
+      rawJson: string;
+      status: StepStatus;
     }
   | {
       kind: "verifier";
-      title: string;
       summary: string;
-      detail: string;
+      valid: boolean | null;
+      checks: string[];
+      overrideMessage: string | null;
+      rawJson: string;
+      status: StepStatus;
     }
   | {
       kind: "memory_updated";
-      title: string;
       summary: string;
-      detail: string;
+      key: string;
+      value: string;
+      rawJson: string;
+      status: StepStatus;
     };
 
-function formatJson(value: unknown): string {
-  return JSON.stringify(value, null, 2);
-}
+// ── Step building ──────────────────────────────────────────────────────────────
 
-function buildStepCards(events: ChatStreamEvent[]): StepCard[] {
-  const cards: StepCard[] = [];
+function buildSteps(events: ChatStreamEvent[], isStreaming: boolean): StepCard[] {
+  const steps: StepCard[] = [];
 
   for (const event of events) {
     switch (event.type) {
       case "memory_loaded": {
-        const contextCount = event.memory_context.length;
-        cards.push({
+        const n = event.memory_context.length;
+        steps.push({
           kind: "memory_loaded",
-          title: "Memory Loaded",
-          summary: contextCount > 0
-            ? `${contextCount} memory item${contextCount === 1 ? "" : "s"} loaded`
-            : "No stored memory loaded for this turn",
-          detail: contextCount > 0
-            ? formatJson(event.memory_context)
-            : "[]",
+          summary:
+            n === 0
+              ? "No stored memory for this customer"
+              : `${n} memory item${n === 1 ? "" : "s"} loaded`,
+          context: event.memory_context,
+          rawJson: JSON.stringify({ memory_context: event.memory_context }, null, 2),
+          status: "success",
         });
         break;
       }
-      case "planner_result": {
-        cards.push({
+
+      case "planner_start": {
+        steps.push({
           kind: "planner",
-          title: "Planner",
-          summary: event.content || "Planner returned without visible reasoning text.",
-          detail: formatJson({
-            content: event.content,
-            tool_calls: event.tool_calls,
-          }),
+          summary: "Agent is reasoning…",
+          content: "",
+          toolCalls: [],
+          rawJson: "{}",
+          status: "running",
+        });
+        break;
+      }
+
+      case "planner_result": {
+        const firstTool = event.tool_calls[0];
+        const summary = firstTool
+          ? `Agent decided to call ${firstTool.name}`
+          : "Agent reasoning complete";
+        const plannerStep = {
+          kind: "planner" as const,
+          summary,
+          content: event.content,
           toolCalls: event.tool_calls,
-        });
+          rawJson: JSON.stringify(
+            { content: event.content, tool_calls: event.tool_calls },
+            null,
+            2,
+          ),
+          status: "success" as StepStatus,
+        };
+        const prev = steps[steps.length - 1];
+        if (prev?.kind === "planner" && prev.status === "running") {
+          steps[steps.length - 1] = plannerStep;
+        } else {
+          steps.push(plannerStep);
+        }
         break;
       }
+
       case "tool_start": {
-        cards.push({
+        steps.push({
           kind: "tool",
-          title: "Tool Result",
-          toolName: "",
           summary: "Tool execution started",
-          detail: "Awaiting tool result payload.",
+          toolName: "",
+          results: null,
+          rawJson: "{}",
+          status: "running",
         });
         break;
       }
+
       case "tool_result": {
-        const toolSummary = event.tool_name
+        const last = steps[steps.length - 1];
+        const summary = event.tool_name
           ? `Tool ${event.tool_name} completed`
           : "Tool execution completed";
-        const toolDetail = formatJson({
-          tool_name: event.tool_name,
-          results: event.results,
-        });
-        const existing = cards[cards.length - 1];
-        if (existing?.kind === "tool" && existing.detail === "Awaiting tool result payload.") {
-          existing.toolName = event.tool_name;
-          existing.summary = toolSummary;
-          existing.detail = toolDetail;
+        const rawJson = JSON.stringify(
+          { tool_name: event.tool_name, results: event.results },
+          null,
+          2,
+        );
+        if (last?.kind === "tool" && last.status === "running") {
+          steps[steps.length - 1] = {
+            ...last,
+            toolName: event.tool_name,
+            summary,
+            results: event.results,
+            rawJson,
+            status: "success",
+          };
           break;
         }
-
-        cards.push({
+        steps.push({
           kind: "tool",
-          title: "Tool Result",
+          summary,
           toolName: event.tool_name,
-          summary: toolSummary,
-          detail: toolDetail,
+          results: event.results,
+          rawJson,
+          status: "success",
         });
         break;
       }
+
       case "verifier_result": {
-        const verdict = event.valid === true ? "passed" : event.valid === false ? "failed" : "returned no verdict";
-        const summary = event.checks.length > 0
-          ? `Verifier ${verdict}: ${event.checks.join(", ")}`
-          : `Verifier ${verdict}`;
-        cards.push({
+        const verdict =
+          event.valid === true ? "passed" : event.valid === false ? "failed" : "returned no verdict";
+        const checks = event.checks.length;
+        const summary =
+          checks > 0
+            ? `Verifier ${verdict} (${checks}/${checks} check${checks === 1 ? "" : "s"})`
+            : `Verifier ${verdict}`;
+        steps.push({
           kind: "verifier",
-          title: "Verifier",
-          summary: event.override_message ? `${summary}. ${event.override_message}` : summary,
-          detail: formatJson({
-            valid: event.valid,
-            checks: event.checks,
-            override_message: event.override_message,
-          }),
+          summary,
+          valid: event.valid,
+          checks: event.checks,
+          overrideMessage: event.override_message,
+          rawJson: JSON.stringify(
+            {
+              valid: event.valid,
+              checks: event.checks,
+              override_message: event.override_message,
+            },
+            null,
+            2,
+          ),
+          status: event.valid === false ? "failed" : "success",
         });
         break;
       }
-      case "memory_updated":
-        cards.push({
+
+      case "memory_updated": {
+        steps.push({
           kind: "memory_updated",
-          title: "Memory Updated",
-          summary: event.key
-            ? `Stored ${event.key} in customer memory`
-            : "Turn memory update completed",
-          detail: formatJson(event),
+          summary: `Stored ${event.key} in customer memory`,
+          key: event.key,
+          value: event.value,
+          rawJson: JSON.stringify({ key: event.key, value: event.value }, null, 2),
+          status: "success",
         });
         break;
+      }
+
       default:
         break;
     }
   }
 
-  return cards;
+  // Mark last step as running if still streaming
+  if (isStreaming && steps.length > 0) {
+    steps[steps.length - 1].status = "running";
+  }
+
+  return steps;
 }
 
-function ExecutionContextCard({
-  activeCustomerName,
-  selectedProvider,
-  selectedModel,
-  threadId,
-}: Pick<
-  AgentProcessPanelProps,
-  "activeCustomerName" | "selectedProvider" | "selectedModel" | "threadId"
->) {
-  return (
-    <section className="rounded-[24px] border border-border/70 bg-background/80 p-4 shadow-sm">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="text-xs uppercase tracking-[0.24em] text-muted-foreground">Execution Context</p>
-          <h3 className="mt-2 text-lg font-bold">Current Turn</h3>
-        </div>
-        <span className="rounded-full bg-secondary px-3 py-1 text-xs font-semibold text-secondary-foreground">
-          Live
-        </span>
-      </div>
+// ── Sub-components ─────────────────────────────────────────────────────────────
 
-      <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
-        <div className="rounded-2xl bg-card px-3 py-3">
-          <dt className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Customer</dt>
-          <dd className="mt-1 font-medium text-foreground">{activeCustomerName}</dd>
-        </div>
-        <div className="rounded-2xl bg-card px-3 py-3">
-          <dt className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Provider</dt>
-          <dd className="mt-1 font-medium text-foreground">{selectedProvider ?? "Not selected"}</dd>
-        </div>
-        <div className="rounded-2xl bg-card px-3 py-3">
-          <dt className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Model</dt>
-          <dd className="mt-1 font-medium text-foreground">{selectedModel ?? "Not selected"}</dd>
-        </div>
-        <div className="rounded-2xl bg-card px-3 py-3">
-          <dt className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Conversation Session</dt>
-          <dd className="mt-1 font-medium text-foreground">{threadId ?? "Pending first stream event"}</dd>
-        </div>
-      </dl>
-    </section>
-  );
-}
+type StepIconProps = { kind: StepCard["kind"] };
 
-type ProcessStepCardProps = {
-  card: StepCard;
-  index: number;
+const STEP_ICONS: Record<StepCard["kind"], React.ElementType> = {
+  memory_loaded: Database,
+  planner: Brain,
+  tool: Wrench,
+  verifier: Shield,
+  memory_updated: Save,
 };
 
-function ProcessStepCard({ card, index }: ProcessStepCardProps) {
-  const [expanded, setExpanded] = useState(false);
+const STEP_ICON_COLORS: Record<StepCard["kind"], string> = {
+  memory_loaded: "text-sky-500",
+  planner: "text-violet-500",
+  tool: "text-amber-500",
+  verifier: "text-emerald-500",
+  memory_updated: "text-sky-500",
+};
 
+function StepIcon({ kind }: StepIconProps) {
+  const Icon = STEP_ICONS[kind];
   return (
-    <article className="rounded-[24px] border border-border/70 bg-background/80 p-4 shadow-sm">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="text-xs uppercase tracking-[0.24em] text-muted-foreground">
-            Step {index + 1}
-          </p>
-          <h3 className="mt-2 text-lg font-bold">{card.title}</h3>
-        </div>
-        <Button
-          variant="outline"
-          aria-expanded={expanded}
-          aria-controls={`process-step-detail-${index}`}
-          onClick={() => setExpanded((current) => !current)}
-        >
-          {expanded ? "Hide detail" : "Show detail"}
-        </Button>
-      </div>
-
-      <p className="mt-4 text-sm leading-6 text-foreground">{card.summary}</p>
-
-      {"toolCalls" in card && card.toolCalls.length > 0 ? (
-        <div className="mt-4 space-y-3">
-          <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Planned tool calls</p>
-          {card.toolCalls.map((toolCall, toolIndex) => (
-            <div key={`${toolCall.name}-${toolIndex}`} className="rounded-2xl bg-card px-3 py-3">
-              <p className="font-medium text-foreground">{toolCall.name}</p>
-              <pre className="mt-2 overflow-x-auto text-xs leading-5 text-muted-foreground">
-                {formatJson(toolCall.args)}
-              </pre>
-            </div>
-          ))}
-        </div>
-      ) : null}
-
-      {expanded ? (
-        <pre
-          id={`process-step-detail-${index}`}
-          className="mt-4 overflow-x-auto rounded-2xl bg-card px-3 py-3 text-xs leading-5 text-muted-foreground"
-        >
-          {card.detail}
-        </pre>
-      ) : null}
-    </article>
+    <span
+      className={cn(
+        "flex size-7 shrink-0 items-center justify-center rounded-full border border-border/60 bg-card shadow-sm",
+        STEP_ICON_COLORS[kind],
+      )}
+    >
+      <Icon className="size-3.5" />
+    </span>
   );
 }
 
-export function AgentProcessPanelContent({
-  activeCustomerName,
-  selectedProvider,
-  selectedModel,
-  threadId,
-  events,
-}: AgentProcessPanelProps) {
-  const cards = buildStepCards(events);
-
+function StatusBadge({ status }: { status: StepStatus }) {
+  if (status === "running") {
+    return (
+      <span className="flex items-center gap-1 rounded-full border border-amber-400/30 bg-amber-400/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-widest text-amber-500">
+        <span className="relative flex size-1.5">
+          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-amber-400 opacity-75" />
+          <span className="relative inline-flex size-1.5 rounded-full bg-amber-500" />
+        </span>
+        Running
+      </span>
+    );
+  }
+  if (status === "failed") {
+    return (
+      <span className="flex items-center gap-1 rounded-full border border-destructive/30 bg-destructive/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-widest text-destructive">
+        <XCircle className="size-2.5" />
+        Failed
+      </span>
+    );
+  }
   return (
-    <div className="space-y-5 overflow-y-auto">
-      <ExecutionContextCard
-        activeCustomerName={activeCustomerName}
-        selectedProvider={selectedProvider}
-        selectedModel={selectedModel}
-        threadId={threadId}
-      />
+    <span className="flex items-center gap-1 rounded-full border border-emerald-400/30 bg-emerald-400/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-widest text-emerald-600 dark:text-emerald-400">
+      <CheckCircle2 className="size-2.5" />
+      Done
+    </span>
+  );
+}
 
-      {cards.length > 0 ? (
-        cards.map((card, index) => (
-          <ProcessStepCard key={`${card.kind}-${index}`} card={card} index={index} />
-        ))
-      ) : (
-        <section className="rounded-[24px] border border-dashed border-border bg-background/60 px-4 py-6 text-sm text-muted-foreground">
-          Current-turn process steps will appear here as SSE events arrive.
-        </section>
+// ── Layer 2 content ────────────────────────────────────────────────────────────
+
+function formatValue(v: unknown): string {
+  if (v === null) return "null";
+  if (typeof v === "object") return JSON.stringify(v);
+  return String(v);
+}
+
+function KVRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 rounded-lg bg-muted/50 px-3 py-2 font-mono text-xs">
+      <span className="shrink-0 font-semibold text-foreground/70">{label}</span>
+      <span className="min-w-0 break-all text-foreground">{value}</span>
+    </div>
+  );
+}
+
+function MemoryLayer2({ context }: { context: MemoryContextEntry[] }) {
+  if (context.length === 0) {
+    return (
+      <p className="text-xs text-muted-foreground">No memory entries for this turn.</p>
+    );
+  }
+  return (
+    <div className="space-y-1.5">
+      {context.map((entry, i) =>
+        entry.type === "memory" ? (
+          <KVRow key={i} label={entry.key} value={entry.value} />
+        ) : (
+          <div key={i} className="rounded-lg bg-muted/50 px-3 py-2 font-mono text-xs">
+            <span className="font-semibold text-foreground/70">complaint</span>
+            <span className="ml-3 text-foreground">{entry.issue}</span>
+          </div>
+        ),
       )}
     </div>
   );
 }
 
-export function AgentProcessPanel({
-  isOpen,
-  activeCustomerName,
-  selectedProvider,
-  selectedModel,
-  threadId,
-  events,
-  onToggle,
-}: AgentProcessPanelWrapperProps) {
+function PlannerLayer2({
+  content,
+  toolCalls,
+}: {
+  content: string;
+  toolCalls: PlannerToolCall[];
+}) {
   return (
-    <aside
-      className={cn(
-        "flex h-full flex-col rounded-[28px] border border-border/80 bg-card/90 shadow-panel transition-all",
-        isOpen ? "p-5" : "items-center p-3",
-      )}
-    >
-      <div className={cn("flex items-center gap-3", isOpen ? "justify-between" : "flex-col")}>
-        {isOpen ? (
-          <div>
-            <p className="text-xs uppercase tracking-[0.24em] text-muted-foreground">Right Panel</p>
-            <h2 className="text-xl font-bold">Agent Process Panel</h2>
-          </div>
-        ) : null}
-        <Button variant="outline" aria-expanded={isOpen} onClick={onToggle}>
-          {isOpen ? "Collapse" : "Expand"}
-        </Button>
-      </div>
-
-      {isOpen ? (
-        <div className="mt-5">
-          <AgentProcessPanelContent
-            activeCustomerName={activeCustomerName}
-            selectedProvider={selectedProvider}
-            selectedModel={selectedModel}
-            threadId={threadId}
-            events={events}
-          />
+    <div className="space-y-3">
+      {content ? (
+        <p className="text-xs leading-relaxed text-foreground/80">{content}</p>
+      ) : null}
+      {toolCalls.length > 0 ? (
+        <div className="space-y-2">
+          <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+            Tool Calls
+          </p>
+          {toolCalls.map((tc, i) => (
+            <div
+              key={i}
+              className="rounded-lg border border-amber-300/30 bg-amber-50/50 px-3 py-2 dark:bg-amber-950/20"
+            >
+              <p className="font-mono text-xs font-semibold text-amber-700 dark:text-amber-400">
+                {tc.name}
+              </p>
+              <div className="mt-1.5 space-y-1">
+                {Object.entries(tc.args).map(([k, v]) => (
+                  <div key={k} className="flex gap-2 font-mono text-xs">
+                    <span className="shrink-0 text-muted-foreground">{k}:</span>
+                    <span className="text-foreground">{formatValue(v)}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
         </div>
       ) : null}
-    </aside>
+    </div>
+  );
+}
+
+function ToolLayer2({ results }: { results: JsonValue }) {
+  if (results === null || typeof results !== "object" || Array.isArray(results)) {
+    return (
+      <pre className="rounded-lg bg-muted/50 p-3 font-mono text-xs text-foreground/80">
+        {JSON.stringify(results, null, 2)}
+      </pre>
+    );
+  }
+  const entries = Object.entries(results as Record<string, JsonValue>);
+  return (
+    <div className="space-y-1.5">
+      {entries.map(([k, v]) => (
+        <KVRow key={k} label={k} value={formatValue(v)} />
+      ))}
+    </div>
+  );
+}
+
+function VerifierLayer2({
+  checks,
+  valid,
+  overrideMessage,
+}: {
+  checks: string[];
+  valid: boolean | null;
+  overrideMessage: string | null;
+}) {
+  return (
+    <div className="space-y-2">
+      {checks.map((check, i) => (
+        <div key={i} className="flex items-start gap-2 text-xs">
+          {valid !== false ? (
+            <CheckCircle2 className="mt-0.5 size-3.5 shrink-0 text-emerald-500" />
+          ) : (
+            <XCircle className="mt-0.5 size-3.5 shrink-0 text-destructive" />
+          )}
+          <span className="text-foreground/80">{check}</span>
+        </div>
+      ))}
+      {overrideMessage ? (
+        <p className="mt-2 rounded-lg border border-amber-300/30 bg-amber-50/50 px-3 py-2 text-xs text-amber-700 dark:bg-amber-950/20 dark:text-amber-400">
+          {overrideMessage}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+function MemoryUpdatedLayer2({ memKey, value }: { memKey: string; value: string }) {
+  return (
+    <div className="space-y-1.5">
+      <KVRow label={memKey} value={value} />
+    </div>
+  );
+}
+
+// ── Timeline step ──────────────────────────────────────────────────────────────
+
+function TimelineStep({
+  step,
+  isLast,
+  isActive,
+}: {
+  step: StepCard;
+  isLast: boolean;
+  isActive: boolean;
+}) {
+  const [layer2Open, setLayer2Open] = useState(false);
+  const [layer3Open, setLayer3Open] = useState(false);
+
+  const summaryLabel = step.summary;
+
+  return (
+    <li
+      role="listitem"
+      data-active={isActive ? "true" : undefined}
+      className="relative flex gap-3"
+    >
+      {/* Connector line */}
+      {!isLast && (
+        <div className="absolute left-3.5 top-7 bottom-0 w-px bg-border/60" aria-hidden />
+      )}
+
+      {/* Icon dot */}
+      <div className="relative z-10 shrink-0 pt-0.5">
+        <StepIcon kind={step.kind} />
+        {isActive && (
+          <span className="absolute -inset-0.5 rounded-full ring-2 ring-amber-400/50 animate-pulse" />
+        )}
+      </div>
+
+      {/* Content */}
+      <div className="min-w-0 flex-1 pb-5">
+        {/* Layer 1: summary button */}
+        <button
+          type="button"
+          aria-expanded={layer2Open}
+          aria-label={summaryLabel}
+          onClick={() => {
+            setLayer2Open((v) => {
+              if (v) setLayer3Open(false);
+              return !v;
+            });
+          }}
+          className={cn(
+            "w-full text-left",
+            "flex flex-wrap items-start justify-between gap-x-3 gap-y-1",
+          )}
+        >
+          <span className="text-xs font-medium leading-snug text-foreground">
+            {step.summary}
+          </span>
+          <StatusBadge status={step.status} />
+        </button>
+
+        {/* Layer 2: verbose content */}
+        {layer2Open && (
+          <div className="mt-3 space-y-3 rounded-xl border border-border/50 bg-card/50 p-3">
+            {step.kind === "memory_loaded" && <MemoryLayer2 context={step.context} />}
+            {step.kind === "planner" && (
+              <PlannerLayer2 content={step.content} toolCalls={step.toolCalls} />
+            )}
+            {step.kind === "tool" && <ToolLayer2 results={step.results} />}
+            {step.kind === "verifier" && (
+              <VerifierLayer2
+                checks={step.checks}
+                valid={step.valid}
+                overrideMessage={step.overrideMessage}
+              />
+            )}
+            {step.kind === "memory_updated" && (
+              <MemoryUpdatedLayer2 memKey={step.key} value={step.value} />
+            )}
+
+            {/* Layer 3 */}
+            {!layer3Open ? (
+              <button
+                type="button"
+                aria-label="View raw payload"
+                onClick={() => setLayer3Open(true)}
+                className="text-[10px] text-muted-foreground/60 underline-offset-2 hover:text-muted-foreground hover:underline transition-colors"
+              >
+                View raw payload
+              </button>
+            ) : (
+              <pre className="overflow-x-auto rounded-lg bg-muted/60 p-3 font-mono text-[10px] leading-relaxed text-muted-foreground">
+                {step.rawJson}
+              </pre>
+            )}
+          </div>
+        )}
+      </div>
+    </li>
+  );
+}
+
+// ── Public component ───────────────────────────────────────────────────────────
+
+type AgentProcessPanelProps = {
+  events: ChatStreamEvent[];
+  isHistoryMode: boolean;
+  isStreaming: boolean;
+};
+
+export function AgentProcessPanel({ events, isHistoryMode, isStreaming }: AgentProcessPanelProps) {
+  if (isHistoryMode) {
+    return (
+      <div className="flex h-full items-center justify-center p-6 text-center">
+        <div className="space-y-2">
+          <div className="mx-auto flex size-10 items-center justify-center rounded-full bg-muted/50">
+            <Brain className="size-5 text-muted-foreground/50" />
+          </div>
+          <p className="text-xs font-medium text-muted-foreground">
+            Process trace is only available during live conversation
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  const steps = buildSteps(events, isStreaming);
+
+  if (steps.length === 0) {
+    return (
+      <div className="flex h-full items-center justify-center p-6 text-center">
+        <div className="space-y-2">
+          <div className="mx-auto flex size-10 items-center justify-center rounded-full bg-muted/50">
+            <Brain className="size-5 text-muted-foreground/50" />
+          </div>
+          <p className="text-xs font-medium text-muted-foreground">
+            Process steps will appear here as events arrive
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <ul className="space-y-0 px-1 py-2" aria-label="Agent process timeline">
+      {steps.map((step, i) => (
+        <TimelineStep
+          key={`${step.kind}-${i}`}
+          step={step}
+          isLast={i === steps.length - 1}
+          isActive={isStreaming && i === steps.length - 1}
+        />
+      ))}
+    </ul>
   );
 }

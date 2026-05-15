@@ -1,3 +1,15 @@
+// Mock react-resizable-panels: the Group component uses ResizeObserver callbacks
+// for layout calculation that never fire in jsdom, preventing state re-renders.
+// Replace with lightweight div wrappers so tests exercise real chat logic.
+vi.mock("react-resizable-panels", () => ({
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  Group: ({ children, className }: any) => <div className={className}>{children}</div>,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  Panel: ({ children }: any) => <div>{children}</div>,
+  Separator: () => <div />,
+  usePanelRef: () => ({ current: null }),
+}));
+
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -163,5 +175,25 @@ describe("ChatPage", () => {
 
     expect(await screen.findByText(/start a fresh conversation/i)).toBeInTheDocument();
     expect(screen.queryByText("A response")).not.toBeInTheDocument();
+  });
+
+  it("shows an Agent Process Panel trigger button on the chat page", async () => {
+    renderChat();
+    expect(
+      await screen.findByRole("button", { name: /open agent process panel/i }),
+    ).toBeInTheDocument();
+  });
+
+  it("expanding the Agent Process Panel in history mode shows the trace empty state", async () => {
+    renderChat();
+
+    await userEvent.click(await screen.findByText("Hello there"));
+    await screen.findByText("Hi! How can I help you today?");
+
+    await userEvent.click(screen.getByRole("button", { name: /open agent process panel/i }));
+
+    expect(
+      await screen.findByText(/process trace is only available during live conversation/i),
+    ).toBeInTheDocument();
   });
 });

@@ -43,7 +43,6 @@ export type AppState = {
     currentTurnId: string | null;
     processEvents: ChatStreamEvent[];
   };
-  rightPanelOpen: boolean;
 };
 
 export type AppAction =
@@ -86,9 +85,6 @@ export type AppAction =
       type: "stream_event_received";
       turnId: string;
       event: ChatStreamEvent;
-    }
-  | {
-      type: "right_panel_toggled";
     };
 
 function chooseProvider(
@@ -141,7 +137,6 @@ export function createInitialState(): AppState {
       currentTurnId: null,
       processEvents: [],
     },
-    rightPanelOpen: true,
   };
 }
 
@@ -294,11 +289,6 @@ export function appReducer(state: AppState, action: AppAction): AppState {
           currentTurnId: terminal ? null : action.turnId,
           processEvents: [...state.stream.processEvents, action.event],
         },
-      };
-    case "right_panel_toggled":
-      return {
-        ...state,
-        rightPanelOpen: !state.rightPanelOpen,
       };
     default:
       return state;
