@@ -402,10 +402,8 @@ function MemoryUpdatedLayer2({ memKey, value }: { memKey: string; value: string 
 
 function TimelineStep({
   step,
-  isActive,
 }: {
   step: StepCard;
-  isActive: boolean;
 }) {
   const [layer2Open, setLayer2Open] = useState(false);
   const [layer3Open, setLayer3Open] = useState(false);
@@ -413,15 +411,11 @@ function TimelineStep({
   return (
     <li
       role="listitem"
-      data-active={isActive ? "true" : undefined}
       className="flex items-start gap-3"
     >
       {/* Icon — mt-0.5 aligns its center with the text cap-height of text-xs leading-snug */}
-      <div className="relative mt-0.5 shrink-0">
+      <div className="mt-0.5 shrink-0">
         <StepIcon kind={step.kind} />
-        {isActive && (
-          <span className="absolute -inset-1 rounded-full ring-2 ring-amber-400/50 animate-pulse" />
-        )}
       </div>
 
       {/* Content */}
@@ -531,12 +525,11 @@ export function AgentProcessPanel({ events, isHistoryMode, isStreaming }: AgentP
   }
 
   return (
-    <ul className="space-y-0 px-1 py-2" aria-label="Agent process timeline">
+    <ul className="space-y-0 px-4 py-3" aria-label="Agent process timeline">
       {steps.map((step, i) => (
         <TimelineStep
           key={`${step.kind}-${i}`}
           step={step}
-          isActive={isStreaming && i === steps.length - 1}
         />
       ))}
     </ul>

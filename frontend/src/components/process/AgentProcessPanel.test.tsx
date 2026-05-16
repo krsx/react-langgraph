@@ -194,8 +194,8 @@ describe("AgentProcessPanel", () => {
     expect(screen.getByText((text) => text.includes('"valid"'))).toBeInTheDocument();
   });
 
-  // Active streaming step has pulsing indicator
-  it("marks the last step as active with data-active attribute during streaming", () => {
+  // Active streaming step shows Running badge
+  it("shows Running badge on the last step during streaming and no data-active attribute", () => {
     renderPanel(
       [
         {
@@ -213,11 +213,13 @@ describe("AgentProcessPanel", () => {
       { isStreaming: true },
     );
 
+    // Running badge text indicates active streaming step
+    expect(screen.getByText(/running/i)).toBeInTheDocument();
+    // No data-active attribute is set on any step (yellow ring removed)
     const steps = screen.getAllByRole("listitem");
-    const lastStep = steps[steps.length - 1];
-    expect(lastStep).toHaveAttribute("data-active", "true");
-    // Non-last steps should not be active
-    expect(steps[0]).not.toHaveAttribute("data-active", "true");
+    for (const step of steps) {
+      expect(step).not.toHaveAttribute("data-active");
+    }
   });
 
   // planner_start shows running placeholder, upgraded by planner_result
