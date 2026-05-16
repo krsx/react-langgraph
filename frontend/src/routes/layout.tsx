@@ -118,8 +118,8 @@ export function Layout() {
       <SidebarProvider className="h-svh overflow-hidden">
         <Sidebar collapsible="icon">
           <SidebarHeader className="border-b border-sidebar-border px-4 py-3">
-            <div className="flex items-center gap-2 group-data-[collapsible=icon]:justify-center">
-              <Terminal className="size-5 shrink-0 text-sidebar-primary" />
+            <div className="flex items-center gap-1 group-data-[collapsible=icon]:justify-center">
+              <Terminal className="size-4 shrink-0 text-sidebar-primary text-white bg-primary" />
               <span className="font-mono text-sm font-semibold tracking-tight group-data-[collapsible=icon]:hidden">
                 Agent Console
               </span>

@@ -65,7 +65,7 @@ export function ChatPage() {
 
       <ResizablePanelGroup orientation="horizontal" className="min-h-0 flex-1">
         {/* ── Conversation panel ── */}
-        <ResizablePanel id="conversation" defaultSize={68} className="min-h-0">
+        <ResizablePanel id="conversation" defaultSize={55} className="min-h-0">
           <div className="relative flex h-full min-h-0 flex-col overflow-hidden">
             <ConversationArea />
 
@@ -134,8 +134,8 @@ export function ChatPage() {
           id="process"
           collapsible
           collapsedSize={0}
-          defaultSize={32}
-          minSize={20}
+          defaultSize={45}
+          minSize={25}
           className="min-h-0"
           panelRef={panelRef}
         >

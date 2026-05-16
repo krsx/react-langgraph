@@ -236,16 +236,7 @@ const STEP_ICON_COLORS: Record<StepCard["kind"], string> = {
 
 function StepIcon({ kind }: StepIconProps) {
   const Icon = STEP_ICONS[kind];
-  return (
-    <span
-      className={cn(
-        "flex size-7 shrink-0 items-center justify-center rounded-full border border-border/60 bg-card shadow-sm",
-        STEP_ICON_COLORS[kind],
-      )}
-    >
-      <Icon className="size-3.5" />
-    </span>
-  );
+  return <Icon className={cn("size-4 shrink-0", STEP_ICON_COLORS[kind])} />;
 }
 
 function StatusBadge({ status }: { status: StepStatus }) {
@@ -328,21 +319,16 @@ function PlannerLayer2({
         <p className="text-xs leading-relaxed text-foreground/80">{content}</p>
       ) : null}
       {toolCalls.length > 0 ? (
-        <div className="space-y-2">
+        <div className="space-y-1.5">
           <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
             Tool Calls
           </p>
           {toolCalls.map((tc, i) => (
-            <div
-              key={i}
-              className="rounded-lg border border-amber-300/30 bg-amber-50/50 px-3 py-2 dark:bg-amber-950/20"
-            >
-              <p className="font-mono text-xs font-semibold text-amber-700 dark:text-amber-400">
-                {tc.name}
-              </p>
+            <div key={i} className="rounded-lg bg-muted/50 px-3 py-2 font-mono text-xs">
+              <p className="font-semibold text-foreground/70">{tc.name}</p>
               <div className="mt-1.5 space-y-1">
                 {Object.entries(tc.args).map(([k, v]) => (
-                  <div key={k} className="flex gap-2 font-mono text-xs">
+                  <div key={k} className="flex gap-2">
                     <span className="shrink-0 text-muted-foreground">{k}:</span>
                     <span className="text-foreground">{formatValue(v)}</span>
                   </div>
@@ -416,34 +402,25 @@ function MemoryUpdatedLayer2({ memKey, value }: { memKey: string; value: string 
 
 function TimelineStep({
   step,
-  isLast,
   isActive,
 }: {
   step: StepCard;
-  isLast: boolean;
   isActive: boolean;
 }) {
   const [layer2Open, setLayer2Open] = useState(false);
   const [layer3Open, setLayer3Open] = useState(false);
 
-  const summaryLabel = step.summary;
-
   return (
     <li
       role="listitem"
       data-active={isActive ? "true" : undefined}
-      className="relative flex gap-3"
+      className="flex items-start gap-3"
     >
-      {/* Connector line */}
-      {!isLast && (
-        <div className="absolute left-3.5 top-7 bottom-0 w-px bg-border/60" aria-hidden />
-      )}
-
-      {/* Icon dot */}
-      <div className="relative z-10 shrink-0 pt-0.5">
+      {/* Icon — mt-0.5 aligns its center with the text cap-height of text-xs leading-snug */}
+      <div className="relative mt-0.5 shrink-0">
         <StepIcon kind={step.kind} />
         {isActive && (
-          <span className="absolute -inset-0.5 rounded-full ring-2 ring-amber-400/50 animate-pulse" />
+          <span className="absolute -inset-1 rounded-full ring-2 ring-amber-400/50 animate-pulse" />
         )}
       </div>
 
@@ -453,7 +430,7 @@ function TimelineStep({
         <button
           type="button"
           aria-expanded={layer2Open}
-          aria-label={summaryLabel}
+          aria-label={step.summary}
           onClick={() => {
             setLayer2Open((v) => {
               if (v) setLayer3Open(false);
@@ -474,33 +451,33 @@ function TimelineStep({
         {/* Layer 2: verbose content */}
         {layer2Open && (
           <div className="mt-3 space-y-3 rounded-xl border border-border/50 bg-card/50 p-3">
-            {step.kind === "memory_loaded" && <MemoryLayer2 context={step.context} />}
-            {step.kind === "planner" && (
-              <PlannerLayer2 content={step.content} toolCalls={step.toolCalls} />
-            )}
-            {step.kind === "tool" && <ToolLayer2 results={step.results} />}
-            {step.kind === "verifier" && (
-              <VerifierLayer2
-                checks={step.checks}
-                valid={step.valid}
-                overrideMessage={step.overrideMessage}
-              />
-            )}
-            {step.kind === "memory_updated" && (
-              <MemoryUpdatedLayer2 memKey={step.key} value={step.value} />
-            )}
+            <div className="rounded-lg bg-secondary px-3 py-2.5">
+              {step.kind === "memory_loaded" && <MemoryLayer2 context={step.context} />}
+              {step.kind === "planner" && (
+                <PlannerLayer2 content={step.content} toolCalls={step.toolCalls} />
+              )}
+              {step.kind === "tool" && <ToolLayer2 results={step.results} />}
+              {step.kind === "verifier" && (
+                <VerifierLayer2
+                  checks={step.checks}
+                  valid={step.valid}
+                  overrideMessage={step.overrideMessage}
+                />
+              )}
+              {step.kind === "memory_updated" && (
+                <MemoryUpdatedLayer2 memKey={step.key} value={step.value} />
+              )}
+            </div>
 
-            {/* Layer 3 */}
-            {!layer3Open ? (
-              <button
-                type="button"
-                aria-label="View raw payload"
-                onClick={() => setLayer3Open(true)}
-                className="text-[10px] text-muted-foreground/60 underline-offset-2 hover:text-muted-foreground hover:underline transition-colors"
-              >
-                View raw payload
-              </button>
-            ) : (
+            {/* Layer 3 toggle */}
+            <button
+              type="button"
+              onClick={() => setLayer3Open((v) => !v)}
+              className="text-[10px] text-primary/70 underline-offset-2 hover:text-primary hover:underline transition-colors"
+            >
+              {layer3Open ? "Hide payload" : "View payload"}
+            </button>
+            {layer3Open && (
               <pre className="overflow-x-auto rounded-lg bg-muted/60 p-3 font-mono text-[10px] leading-relaxed text-muted-foreground">
                 {step.rawJson}
               </pre>
@@ -559,7 +536,6 @@ export function AgentProcessPanel({ events, isHistoryMode, isStreaming }: AgentP
         <TimelineStep
           key={`${step.kind}-${i}`}
           step={step}
-          isLast={i === steps.length - 1}
           isActive={isStreaming && i === steps.length - 1}
         />
       ))}
