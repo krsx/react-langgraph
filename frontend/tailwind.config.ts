@@ -4,6 +4,11 @@ import typography from "@tailwindcss/typography";
 export default {
   content: ["./index.html", "./src/**/*.{ts,tsx}"],
   theme: {
+    data: {
+      horizontal: 'orientation="horizontal"',
+      vertical: 'orientation="vertical"',
+      active: 'state="active"',
+    },
     extend: {
       colors: {
         border: "var(--border)",

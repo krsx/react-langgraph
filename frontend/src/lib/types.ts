@@ -10,7 +10,8 @@ export type Order = {
   customer_id: number;
   product_name: string;
   status: string;
-  created_at?: string;
+  order_date?: string | null;
+  delivery_date?: string | null;
 };
 
 export type Complaint = {
