@@ -36,7 +36,7 @@ def test_docker_compose_declares_mysql_seeded_service():
 
     assert "mysql:" in compose
     assert '"3306:3306"' in compose
-    assert "./backend/db/seed.sql:/docker-entrypoint-initdb.d/seed.sql" in compose
+    assert "./backend/db:/docker-entrypoint-initdb.d:ro" in compose
     assert "mysql_data:/var/lib/mysql" in compose
     assert "MYSQL_HOST: mysql" in compose
 
