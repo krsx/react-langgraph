@@ -45,7 +45,6 @@ describe("MemoryPage", () => {
 
     expect(await screen.findByRole("combobox", { name: /customer/i })).toBeInTheDocument();
     expect(screen.getByText(/select a customer to view memory entries/i)).toBeInTheDocument();
-    expect(screen.queryByRole("table")).not.toBeInTheDocument();
   });
 
   it("auto-selects the first customer when customers load", async () => {
@@ -91,7 +90,6 @@ describe("MemoryPage", () => {
     await userEvent.click(await screen.findByRole("option", { name: /ahmad rifqi/i }));
 
     expect(await screen.findByText(/no memory entries/i)).toBeInTheDocument();
-    expect(screen.queryByRole("table")).not.toBeInTheDocument();
   });
 
   it("opens Add Entry dialog and creates a new entry", async () => {

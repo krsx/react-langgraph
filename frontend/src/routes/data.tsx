@@ -421,6 +421,12 @@ function OrdersTab() {
 
 type ComplaintForm = { customer_id: string; order_id: string; issue: string; status: string };
 
+function parsePositiveInt(value: string): number | null {
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed <= 0) return null;
+  return parsed;
+}
+
 function ComplaintDialog({
   open,
   initial,
@@ -450,7 +456,8 @@ function ComplaintDialog({
   };
 
   const handleSave = () => {
-    if (!form.customer_id || !form.issue.trim() || !form.status) return;
+    const orderId = parsePositiveInt(form.order_id);
+    if (!form.customer_id || !form.issue.trim() || !form.status || orderId === null) return;
     onSave(form);
   };
 
@@ -484,9 +491,12 @@ function ComplaintDialog({
           <Field label="Order ID" htmlFor="complaint-order">
             <Input
               id="complaint-order"
+              type="number"
+              min="1"
+              step="1"
               value={form.order_id}
               onChange={(e) => setForm((f) => ({ ...f, order_id: e.target.value }))}
-              placeholder="Order ID (optional)"
+              placeholder="Order ID"
             />
           </Field>
           <Field label="Issue" htmlFor="complaint-issue">
@@ -535,14 +545,30 @@ function ComplaintsTab() {
   const customerName = (id: number) => customers.find((c) => c.customer_id === id)?.name ?? String(id);
 
   const addMutation = useMutation({
-    mutationFn: (form: ComplaintForm) =>
-      createComplaint({ customer_id: Number(form.customer_id), order_id: Number(form.order_id), issue: form.issue, status: form.status }),
+    mutationFn: (form: ComplaintForm) => {
+      const orderId = parsePositiveInt(form.order_id);
+      if (orderId === null) throw new Error("Order ID must be a positive integer");
+      return createComplaint({
+        customer_id: Number(form.customer_id),
+        order_id: orderId,
+        issue: form.issue,
+        status: form.status,
+      });
+    },
     onSuccess: () => { void qc.invalidateQueries({ queryKey: ["complaints"] }); setAddOpen(false); },
   });
 
   const editMutation = useMutation({
-    mutationFn: ({ id, form }: { id: number; form: ComplaintForm }) =>
-      updateComplaint(id, { customer_id: Number(form.customer_id), order_id: form.order_id ? Number(form.order_id) : undefined, issue: form.issue, status: form.status }),
+    mutationFn: ({ id, form }: { id: number; form: ComplaintForm }) => {
+      const orderId = form.order_id ? parsePositiveInt(form.order_id) : undefined;
+      if (form.order_id && orderId === null) throw new Error("Order ID must be a positive integer");
+      return updateComplaint(id, {
+        customer_id: Number(form.customer_id),
+        order_id: orderId ?? undefined,
+        issue: form.issue,
+        status: form.status,
+      });
+    },
     onSuccess: () => { void qc.invalidateQueries({ queryKey: ["complaints"] }); setEditTarget(null); },
   });
 

@@ -39,6 +39,13 @@ function renderDataPage(overrides: Record<string, unknown> = {}) {
   };
 }
 
+/** Open a Radix UI Select via keyboard — pointer events do not trigger it in jsdom. */
+async function openSelect(combobox: HTMLElement) {
+  combobox.focus();
+  await userEvent.keyboard(" ");
+  await waitFor(() => expect(combobox).toHaveAttribute("data-state", "open"));
+}
+
 describe("DataPage tab switching", () => {
   it("renders the Data Explorer heading and three tabs", async () => {
     renderDataPage();
@@ -168,5 +175,53 @@ describe("DataPage Orders CRUD", () => {
     await waitFor(() => {
       expect(screen.queryByText("Widget Pro")).not.toBeInTheDocument();
     });
+  });
+});
+
+describe("DataPage Complaints CRUD", () => {
+  it("does not create complaint when order ID is empty", async () => {
+    const { fetchMock } = renderDataPage();
+
+    await userEvent.click(screen.getByRole("tab", { name: /complaints/i }));
+    await screen.findByText("Late delivery");
+
+    await userEvent.click(screen.getByRole("button", { name: /add complaint/i }));
+    const dialog = await screen.findByRole("dialog", { name: /add complaint/i });
+
+    const customerCombobox = within(dialog).getByRole("combobox", { name: /customer/i });
+    await openSelect(customerCombobox);
+    await userEvent.click(await screen.findByRole("option", { name: /ahmad rifqi/i }));
+
+    await userEvent.type(within(dialog).getByLabelText(/issue/i), "Damaged package");
+    await userEvent.click(within(dialog).getByRole("button", { name: /save/i }));
+
+    await waitFor(() => {
+      const complaintPosts = fetchMock.mock.calls.filter(([url, init]) => {
+        const requestUrl = typeof url === "string" ? url : url instanceof URL ? url.toString() : url.url;
+        const method = (init as RequestInit | undefined)?.method;
+        return requestUrl.endsWith("/complaints") && method === "POST";
+      });
+      expect(complaintPosts).toHaveLength(0);
+    });
+  });
+
+  it("creates complaint when order ID is valid", async () => {
+    renderDataPage();
+
+    await userEvent.click(screen.getByRole("tab", { name: /complaints/i }));
+    await screen.findByText("Late delivery");
+
+    await userEvent.click(screen.getByRole("button", { name: /add complaint/i }));
+    const dialog = await screen.findByRole("dialog", { name: /add complaint/i });
+
+    const customerCombobox = within(dialog).getByRole("combobox", { name: /customer/i });
+    await openSelect(customerCombobox);
+    await userEvent.click(await screen.findByRole("option", { name: /ahmad rifqi/i }));
+
+    await userEvent.type(within(dialog).getByLabelText(/order id/i), "1001");
+    await userEvent.type(within(dialog).getByLabelText(/issue/i), "Damaged package");
+    await userEvent.click(within(dialog).getByRole("button", { name: /save/i }));
+
+    expect(await screen.findByText("Damaged package")).toBeInTheDocument();
   });
 });
