@@ -8,7 +8,7 @@ import {
 } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { postChatStream } from "./api";
-import type { ConversationTurn, ConversationView, WritableConversation } from "./state";
+import type { ConversationTurn, ConversationView, WritableConversation } from "./conversation";
 import type { ChatStreamEvent, SessionMessage } from "./types";
 
 // ── State ────────────────────────────────────────────────────────────────────

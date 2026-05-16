@@ -1,7 +1,8 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { createMemoryRouter, RouterProvider } from "react-router-dom";
+import { QueryClient } from "@tanstack/react-query";
+import { createMemoryRouter } from "react-router-dom";
+import { App } from "./App";
 import { routes } from "./routes";
 import { createMockFetch } from "./test-utils/mockApi";
 import type { Customer, ProviderCatalog, SessionSummary } from "./lib/types";
@@ -23,11 +24,7 @@ function renderRouter(path = "/chat", config: RenderConfig = {}) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const router = createMemoryRouter(routes, { initialEntries: [path] });
 
-  render(
-    <QueryClientProvider client={queryClient}>
-      <RouterProvider router={router} />
-    </QueryClientProvider>,
-  );
+  render(<App router={router} queryClient={queryClient} />);
   return { router, user: userEvent.setup() };
 }
 

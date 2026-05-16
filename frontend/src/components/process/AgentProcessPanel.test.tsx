@@ -169,8 +169,8 @@ describe("AgentProcessPanel", () => {
     expect(screen.getByText("User asked to verify order 12345.")).toBeInTheDocument();
   });
 
-  // Layer 3: "View raw payload" reveals raw JSON
-  it('reveals raw JSON in a code block via "View raw payload" button', async () => {
+  // Layer 3: payload toggle reveals raw JSON
+  it('reveals raw JSON in a code block via "View payload" button', async () => {
     renderPanel([
       {
         type: "verifier_result",
@@ -187,8 +187,8 @@ describe("AgentProcessPanel", () => {
     // Expand Layer 2
     await userEvent.click(screen.getByRole("button", { name: /verifier passed/i }));
 
-    // View raw payload button now visible
-    await userEvent.click(screen.getByRole("button", { name: /view raw payload/i }));
+    // Payload toggle now visible
+    await userEvent.click(screen.getByRole("button", { name: /view payload/i }));
 
     // Raw JSON visible in code block
     expect(screen.getByText((text) => text.includes('"valid"'))).toBeInTheDocument();
@@ -260,7 +260,7 @@ describe("AgentProcessPanel", () => {
 
     // Open Layer 2, then Layer 3
     await userEvent.click(screen.getByRole("button", { name: /verifier passed/i }));
-    await userEvent.click(screen.getByRole("button", { name: /view raw payload/i }));
+    await userEvent.click(screen.getByRole("button", { name: /view payload/i }));
     expect(screen.getByText((t) => t.includes('"valid"'))).toBeInTheDocument();
 
     // Close Layer 2
@@ -268,7 +268,7 @@ describe("AgentProcessPanel", () => {
     // Re-open Layer 2 — raw JSON should NOT be visible
     await userEvent.click(screen.getByRole("button", { name: /verifier passed/i }));
     expect(screen.queryByText(/"valid"/)).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /view raw payload/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /view payload/i })).toBeInTheDocument();
   });
 
   // No empty state when in live mode with events
