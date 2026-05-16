@@ -109,95 +109,100 @@ export function MemoryPage() {
   }
 
   return (
-    <div className="flex flex-col gap-6 p-6 overflow-y-auto h-full">
-      <div>
-        <p className="text-xs uppercase tracking-[0.24em] text-muted-foreground">Manager</p>
-        <h1 className="text-2xl font-bold">Memory Manager</h1>
-      </div>
+    <div className="flex h-full flex-col">
+      <header className="border-b px-6 py-4">
+        <h1 className="text-xl font-semibold tracking-tight">Memory Manager</h1>
+      </header>
 
-      <div className="flex items-center gap-3">
-        <label htmlFor="customer-select" className="text-sm font-medium shrink-0">
-          Customer
-        </label>
-        <Select
-          value={selectedCustomerId !== null ? String(selectedCustomerId) : ""}
-          onValueChange={(v) => setSelectedCustomerId(Number(v))}
-        >
-          <SelectTrigger
-            id="customer-select"
-            aria-label="Customer"
-            className="w-56"
+      <div className="flex-1 overflow-auto px-6 py-4">
+        <div className="mb-4 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <label htmlFor="customer-select" className="text-sm font-medium shrink-0">
+              Customer
+            </label>
+            <Select
+              value={selectedCustomerId !== null ? String(selectedCustomerId) : ""}
+              onValueChange={(v) => setSelectedCustomerId(Number(v))}
+            >
+              <SelectTrigger
+                id="customer-select"
+                aria-label="Customer"
+                className="w-56"
+              >
+                <SelectValue placeholder="Select customer…" />
+              </SelectTrigger>
+              <SelectContent>
+                {customers.map((c) => (
+                  <SelectItem key={c.customer_id} value={String(c.customer_id)}>
+                    {c.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <Button
+            size="sm"
+            disabled={selectedCustomerId === null}
+            onClick={() => setDialog({ type: "add" })}
           >
-            <SelectValue placeholder="Select customer…" />
-          </SelectTrigger>
-          <SelectContent>
-            {customers.map((c) => (
-              <SelectItem key={c.customer_id} value={String(c.customer_id)}>
-                {c.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-
-        <Button
-          disabled={selectedCustomerId === null}
-          onClick={() => setDialog({ type: "add" })}
-        >
-          Add Entry
-        </Button>
-      </div>
-
-      {selectedCustomerId === null ? (
-        <p className="text-sm text-muted-foreground">
-          Select a customer to view memory entries.
-        </p>
-      ) : entries.length === 0 ? (
-        <p className="text-sm text-muted-foreground">
-          No memory entries for this customer.
-        </p>
-      ) : (
-        <div className="rounded-none border border-border/70">
-          <Table className="table-fixed">
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-[28%]">Key</TableHead>
-                <TableHead className="w-[40%]">Value</TableHead>
-                <TableHead className="w-[16%]">Created At</TableHead>
-                <TableHead className="w-[16%]">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {entries.map((entry) => (
-                <TableRow key={entry.key}>
-                  <TableCell className="font-mono whitespace-normal break-words align-top">{entry.key}</TableCell>
-                  <TableCell className="whitespace-normal break-words align-top">{entry.value}</TableCell>
-                  <TableCell className="text-muted-foreground align-top">
-                    {new Date(entry.created_at).toLocaleDateString()}
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => openEditDialog(entry)}
-                      >
-                        Edit
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setDialog({ type: "delete", entry })}
-                      >
-                        Delete
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+            Add Entry
+          </Button>
         </div>
-      )}
+
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Key</TableHead>
+              <TableHead>Value</TableHead>
+              <TableHead>Created At</TableHead>
+              <TableHead className="w-[120px]">Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {selectedCustomerId === null && (
+              <TableRow>
+                <TableCell colSpan={4} className="py-10 text-center text-sm text-muted-foreground">
+                  Select a customer to view memory entries.
+                </TableCell>
+              </TableRow>
+            )}
+            {selectedCustomerId !== null && entries.length === 0 && (
+              <TableRow>
+                <TableCell colSpan={4} className="py-10 text-center text-sm text-muted-foreground">
+                  No memory entries for this customer.
+                </TableCell>
+              </TableRow>
+            )}
+            {entries.map((entry) => (
+              <TableRow key={entry.key}>
+                <TableCell className="font-mono whitespace-normal break-words align-top">{entry.key}</TableCell>
+                <TableCell className="whitespace-normal break-words align-top">{entry.value}</TableCell>
+                <TableCell className="text-muted-foreground align-top">
+                  {new Date(entry.created_at).toLocaleDateString()}
+                </TableCell>
+                <TableCell>
+                  <div className="flex gap-1">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => openEditDialog(entry)}
+                    >
+                      Edit
+                    </Button>
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={() => setDialog({ type: "delete", entry })}
+                    >
+                      Delete
+                    </Button>
+                  </div>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
 
       {/* Add Entry Dialog */}
       <Dialog
