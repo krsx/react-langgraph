@@ -1,5 +1,4 @@
 @import "tw-animate-css";
-@import "shadcn/tailwind.css";
 @import "@fontsource-variable/jetbrains-mono";
 
 @tailwind base;
@@ -8,6 +7,8 @@
 
 @layer base {
   :root {
+    --font-heading: 'JetBrains Mono Variable', monospace;
+    --font-mono: 'JetBrains Mono Variable', monospace;
     --background: oklch(1 0 0);
     --foreground: oklch(0.145 0 0);
     --card: oklch(1 0 0);
@@ -44,11 +45,12 @@
   }
 
   * {
-    @apply border-border outline-ring/50;
+    @apply border-border;
   }
 
   body {
-    @apply min-h-screen font-sans antialiased bg-background text-foreground;
+    @apply min-h-screen bg-background text-foreground antialiased;
+    margin: 0;
   }
 
   button,
@@ -56,10 +58,6 @@
   select,
   textarea {
     font: inherit;
-  }
-  .theme {
-    --font-heading: var(--font-mono);
-    --font-mono: 'JetBrains Mono Variable', monospace;
   }
   .dark {
     --background: oklch(0.145 0 0);
@@ -96,5 +94,21 @@
   }
   html {
     @apply font-mono;
+    font-size: 106.25%;
   }
+
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+}
+
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
 }

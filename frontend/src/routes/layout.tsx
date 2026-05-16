@@ -1,5 +1,5 @@
 import { useNavigate, useLocation, NavLink, Outlet } from "react-router-dom";
-import { Brain, ChevronDown, Database, MessageSquare, Plus, Terminal } from "lucide-react";
+import { Brain, ChevronDown, Database, Plus, Terminal } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import {
   Collapsible,
@@ -19,17 +19,75 @@ import {
   SidebarMenuItem,
   SidebarProvider,
   SidebarTrigger,
+  useSidebar,
 } from "@/components/ui/sidebar";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { Button } from "@/components/ui/button";
 import { getSessions, getSessionMessages } from "@/lib/api";
 import { useChatContext } from "@/lib/chat-context";
 
 const NAV_ITEMS = [
-  { to: "/chat", label: "Chat", icon: MessageSquare },
-  { to: "/data", label: "Data Explorer", icon: Database },
-  { to: "/memory", label: "Memory Manager", icon: Brain },
+  { to: "/chat", label: "New Chat", icon: Plus, startsNewChat: true },
+  { to: "/data", label: "Data Explorer", icon: Database, startsNewChat: false },
+  { to: "/memory", label: "Memory Manager", icon: Brain, startsNewChat: false },
 ] as const;
+
+function SidebarSessionSection({
+  onSessionClick,
+  visibleSessions,
+}: {
+  onSessionClick: (threadId: string) => Promise<void>;
+  visibleSessions: Array<{
+    thread_id: string;
+    first_message: string;
+    created_at: string;
+  }>;
+}) {
+  const { state } = useSidebar();
+
+  return (
+    <>
+      {state === "expanded" ? (
+        <Collapsible defaultOpen className="group/collapsible">
+          <SidebarGroup>
+            <SidebarGroupLabel asChild>
+              <CollapsibleTrigger className="flex w-full items-center">
+                Session History
+                <ChevronDown className="ml-auto size-4 transition-transform group-data-[state=open]/collapsible:rotate-180" />
+              </CollapsibleTrigger>
+            </SidebarGroupLabel>
+            <CollapsibleContent>
+              <SidebarGroupContent>
+                {visibleSessions.length === 0 ? (
+                  <p className="px-2 py-2 text-xs text-muted-foreground">
+                    No sessions yet.
+                  </p>
+                ) : (
+                  <SidebarMenu>
+                    {visibleSessions.map((session) => (
+                      <SidebarMenuItem key={session.thread_id}>
+                        <SidebarMenuButton
+                          className="h-auto flex-col items-start gap-0 py-2 text-left"
+                          onClick={() => void onSessionClick(session.thread_id)}
+                        >
+                          <span className="line-clamp-2 text-sm leading-snug">
+                            {session.first_message}
+                          </span>
+                          <span className="text-xs text-muted-foreground">
+                            {new Date(session.created_at).toLocaleDateString()}
+                          </span>
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
+                    ))}
+                  </SidebarMenu>
+                )}
+              </SidebarGroupContent>
+            </CollapsibleContent>
+          </SidebarGroup>
+        </Collapsible>
+      ) : null}
+    </>
+  );
+}
 
 export function Layout() {
   const navigate = useNavigate();
@@ -53,13 +111,12 @@ export function Layout() {
 
   function handleNewChat() {
     newChat();
-    if (location.pathname !== "/chat") navigate("/chat");
   }
 
   return (
     <TooltipProvider>
-      <SidebarProvider>
-        <Sidebar variant="inset" collapsible="icon">
+      <SidebarProvider className="h-svh overflow-hidden">
+        <Sidebar collapsible="icon">
           <SidebarHeader className="border-b border-sidebar-border px-4 py-3">
             <div className="flex items-center gap-2 group-data-[collapsible=icon]:justify-center">
               <Terminal className="size-5 shrink-0 text-sidebar-primary" />
@@ -74,77 +131,47 @@ export function Layout() {
               <SidebarGroupLabel>Navigation</SidebarGroupLabel>
               <SidebarGroupContent>
                 <SidebarMenu>
-                  {NAV_ITEMS.map(({ to, label, icon: Icon }) => (
+                  {NAV_ITEMS.map(({ to, label, icon: Icon, startsNewChat }) => (
                     <SidebarMenuItem key={to}>
-                      <SidebarMenuButton asChild tooltip={label}>
-                        <NavLink to={to}>
-                          <Icon />
-                          <span>{label}</span>
-                        </NavLink>
-                      </SidebarMenuButton>
+                      {startsNewChat ? (
+                        <SidebarMenuButton asChild tooltip={label}>
+                          <NavLink
+                            to={to}
+                            onClick={(event) => {
+                              if (location.pathname === "/chat") event.preventDefault();
+                              handleNewChat();
+                            }}
+                          >
+                            <Icon />
+                            <span>{label}</span>
+                          </NavLink>
+                        </SidebarMenuButton>
+                      ) : (
+                        <SidebarMenuButton asChild tooltip={label}>
+                          <NavLink to={to}>
+                            <Icon />
+                            <span>{label}</span>
+                          </NavLink>
+                        </SidebarMenuButton>
+                      )}
                     </SidebarMenuItem>
                   ))}
                 </SidebarMenu>
               </SidebarGroupContent>
             </SidebarGroup>
 
-            <Collapsible defaultOpen className="group/collapsible">
-              <SidebarGroup>
-                <SidebarGroupLabel asChild>
-                  <CollapsibleTrigger className="flex w-full items-center">
-                    Session History
-                    <ChevronDown className="ml-auto size-4 transition-transform group-data-[state=open]/collapsible:rotate-180" />
-                  </CollapsibleTrigger>
-                </SidebarGroupLabel>
-                <CollapsibleContent>
-                  <SidebarGroupContent>
-                    <div className="px-2 pt-1 pb-2">
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="w-full justify-start gap-1.5 text-xs"
-                        onClick={handleNewChat}
-                      >
-                        <Plus className="size-3.5" />
-                        New Chat
-                      </Button>
-                    </div>
-
-                    {visibleSessions.length === 0 ? (
-                      <p className="px-2 py-2 text-xs text-muted-foreground">
-                        No sessions yet.
-                      </p>
-                    ) : (
-                      <SidebarMenu>
-                        {visibleSessions.map((session) => (
-                          <SidebarMenuItem key={session.thread_id}>
-                            <SidebarMenuButton
-                              className="h-auto flex-col items-start gap-0 py-2 text-left"
-                              onClick={() => void handleSessionClick(session.thread_id)}
-                            >
-                              <span className="line-clamp-2 text-xs leading-snug">
-                                {session.first_message}
-                              </span>
-                              <span className="text-[10px] text-muted-foreground">
-                                {new Date(session.created_at).toLocaleDateString()}
-                              </span>
-                            </SidebarMenuButton>
-                          </SidebarMenuItem>
-                        ))}
-                      </SidebarMenu>
-                    )}
-                  </SidebarGroupContent>
-                </CollapsibleContent>
-              </SidebarGroup>
-            </Collapsible>
+            <SidebarSessionSection
+              onSessionClick={handleSessionClick}
+              visibleSessions={visibleSessions}
+            />
           </SidebarContent>
         </Sidebar>
 
-        <SidebarInset>
-          <header className="flex h-12 items-center gap-2 border-b px-4">
+        <SidebarInset className="min-h-0 overflow-hidden">
+          <header className="flex h-12 shrink-0 items-center gap-2 border-b px-4">
             <SidebarTrigger />
           </header>
-          <main className="flex h-[calc(100vh-3rem)] flex-col">
+          <main className="flex min-h-0 flex-1 flex-col overflow-hidden">
             <Outlet />
           </main>
         </SidebarInset>

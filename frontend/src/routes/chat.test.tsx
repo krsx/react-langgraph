@@ -46,7 +46,7 @@ function renderChat(config: MockConfig = { customers: CUSTOMERS, providers: PROV
   vi.stubGlobal("fetch", fetchMock);
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const router = createMemoryRouter(routes, { initialEntries: ["/chat"] });
-  render(
+  return render(
     <QueryClientProvider client={queryClient}>
       <RouterProvider router={router} />
     </QueryClientProvider>,
@@ -69,7 +69,7 @@ async function openSelect(combobox: HTMLElement) {
 
 describe("ChatPage", () => {
   it("shows Customer, Provider, and Model selectors auto-populated from the API", async () => {
-    renderChat();
+    const { container } = renderChat();
 
     expect(await screen.findByRole("combobox", { name: /customer/i })).toBeInTheDocument();
     expect(screen.getByRole("combobox", { name: /provider/i })).toBeInTheDocument();
@@ -78,6 +78,16 @@ describe("ChatPage", () => {
     await waitFor(() => expect(screen.getByRole("combobox", { name: /customer/i })).toHaveTextContent("Alice Chen"));
     await waitFor(() => expect(screen.getByRole("combobox", { name: /provider/i })).toHaveTextContent("openrouter"));
     await waitFor(() => expect(screen.getByRole("combobox", { name: /model/i })).toHaveTextContent("gpt-4o"));
+
+    expect(container.querySelector(".h-8.w-px.bg-border")).toBeNull();
+  });
+
+  it("constrains the app shell to viewport height to prevent page-level scroll stealing", async () => {
+    const { container } = renderChat();
+    await screen.findByRole("combobox", { name: /customer/i });
+
+    const wrapper = container.querySelector('[data-slot="sidebar-wrapper"]');
+    expect(wrapper).toHaveClass("h-svh");
   });
 
   it("shows empty state placeholder when no messages have been sent", async () => {
@@ -118,13 +128,13 @@ describe("ChatPage", () => {
     await waitFor(() => expect(screen.getByRole("textbox", { name: /message/i })).toBeDisabled());
   });
 
-  it("New Chat button resets to a writable empty conversation", async () => {
+  it("New Chat nav item resets to a writable empty conversation", async () => {
     renderChat();
 
     await userEvent.click(await screen.findByText("Hello there"));
     await screen.findByText("Hi! How can I help you today?");
 
-    await userEvent.click(screen.getByRole("button", { name: /new chat/i }));
+    await userEvent.click(screen.getByRole("link", { name: /new chat/i }));
 
     expect(await screen.findByText(/start a fresh conversation/i)).toBeInTheDocument();
     await waitFor(() => expect(screen.getByRole("textbox", { name: /message/i })).not.toBeDisabled());
@@ -177,23 +187,46 @@ describe("ChatPage", () => {
     expect(screen.queryByText("A response")).not.toBeInTheDocument();
   });
 
-  it("shows an Agent Process Panel trigger button on the chat page", async () => {
+  it("shows the Agent Process Panel open by default on the chat page", async () => {
     renderChat();
-    expect(
-      await screen.findByRole("button", { name: /open agent process panel/i }),
-    ).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: /agent process/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /close agent process panel/i })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /open agent process panel/i })).not.toBeInTheDocument();
   });
 
-  it("expanding the Agent Process Panel in history mode shows the trace empty state", async () => {
+  it("shows the trace empty state in history mode without requiring manual expansion", async () => {
     renderChat();
 
     await userEvent.click(await screen.findByText("Hello there"));
     await screen.findByText("Hi! How can I help you today?");
 
-    await userEvent.click(screen.getByRole("button", { name: /open agent process panel/i }));
-
     expect(
       await screen.findByText(/process trace is only available during live conversation/i),
     ).toBeInTheDocument();
+  });
+
+  it("renders the open select menu on a visible popover surface", async () => {
+    renderChat();
+
+    const customerSelect = await screen.findByRole("combobox", { name: /customer/i });
+    await openSelect(customerSelect);
+
+    const listbox = await screen.findByRole("listbox");
+    const content = listbox.closest('[data-slot="select-content"]');
+    expect(content).toHaveClass("bg-popover");
+    expect(content).toHaveClass("text-popover-foreground");
+  });
+
+  it("keeps headers/composer fixed while chat and trace bodies are scrollable", async () => {
+    renderChat();
+
+    expect(await screen.findByRole("combobox", { name: /customer/i })).toBeInTheDocument();
+
+    expect(screen.getByTestId("chat-header")).toHaveClass("sticky");
+    expect(screen.getByTestId("chat-composer")).toHaveClass("sticky");
+    expect(screen.getByTestId("conversation-scroll-region")).toHaveClass("overflow-y-auto");
+
+    expect(screen.getByTestId("agent-process-header")).toHaveClass("sticky");
+    expect(screen.getByTestId("agent-process-scroll-region")).toHaveClass("overflow-y-auto");
   });
 });

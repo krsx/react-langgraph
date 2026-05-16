@@ -12,7 +12,10 @@ export function ConversationArea() {
 
   if (view.mode === "history") {
     return (
-      <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-4 py-4">
+      <div
+        data-testid="conversation-scroll-region"
+        className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-4 py-4 overscroll-contain"
+      >
         {view.transcript.map((msg) => (
           <MessageBubble
             key={msg.message_id}
@@ -30,14 +33,20 @@ export function ConversationArea() {
 
   if (turns.length === 0) {
     return (
-      <div className="flex min-h-0 flex-1 flex-col items-center justify-center p-8">
+      <div
+        data-testid="conversation-scroll-region"
+        className="flex min-h-0 flex-1 flex-col items-center justify-center overflow-y-auto p-8 overscroll-contain"
+      >
         <EmptyState />
       </div>
     );
   }
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-4 py-4">
+    <div
+      data-testid="conversation-scroll-region"
+      className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-4 py-4 overscroll-contain"
+    >
       {turns.map((turn) => (
         <div key={turn.id} className="flex flex-col gap-2">
           <MessageBubble role="human" content={turn.userMessage} isStreaming={false} />

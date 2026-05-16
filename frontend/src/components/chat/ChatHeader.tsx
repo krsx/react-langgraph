@@ -46,10 +46,13 @@ export function ChatHeader() {
   const activeProviderModels = selectedProvider ? (providers[selectedProvider]?.models ?? []) : [];
 
   return (
-    <div className="flex items-center gap-2 border-b border-border bg-background/95 px-4 py-2">
+    <div
+      data-testid="chat-header"
+      className="sticky top-0 z-20 flex shrink-0 items-center gap-2 border-b border-border bg-background/95 px-4 py-2 backdrop-blur supports-[backdrop-filter]:bg-background/80"
+    >
       {/* Customer */}
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-        <span className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground">Customer</span>
+        <span className="text-xs font-medium uppercase tracking-widest text-muted-foreground">Customer</span>
         <Select
           value={activeCustomerId !== null ? String(activeCustomerId) : ""}
           onValueChange={(v) => selectCustomer(Number(v))}
@@ -67,11 +70,9 @@ export function ChatHeader() {
         </Select>
       </div>
 
-      <div className="h-8 w-px bg-border" />
-
       {/* Provider */}
       <div className="flex flex-col gap-0.5">
-        <span className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground">Provider</span>
+        <span className="text-xs font-medium uppercase tracking-widest text-muted-foreground">Provider</span>
         <Select
           value={selectedProvider ?? ""}
           onValueChange={(v) => {
@@ -94,7 +95,7 @@ export function ChatHeader() {
 
       {/* Model */}
       <div className="flex flex-col gap-0.5">
-        <span className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground">Model</span>
+        <span className="text-xs font-medium uppercase tracking-widest text-muted-foreground">Model</span>
         <Select
           value={selectedModel ?? ""}
           onValueChange={(v) => selectModel(v)}
