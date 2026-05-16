@@ -64,3 +64,16 @@ def test_seed_sql_covers_required_tables_and_fixtures():
 
     order_insert_block = seed_sql.split("INSERT INTO orders", maxsplit=1)[1]
     assert "(0000," not in order_insert_block
+
+
+def test_mysql_refresh_seed_script_exists_and_reuses_compose_exec():
+    script_path = REPO_ROOT / "scripts" / "mysql-refresh-seed.sh"
+
+    assert script_path.exists()
+
+    script_body = script_path.read_text()
+    assert "set -euo pipefail" in script_body
+    assert "docker compose exec" in script_body
+    assert "backend/db/seed.sql" in script_body
+    assert "DROP DATABASE IF EXISTS" in script_body
+    assert "CREATE DATABASE" in script_body
