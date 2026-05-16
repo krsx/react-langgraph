@@ -38,4 +38,4 @@ def memory_update(state: AgentState) -> dict:
     finally:
         conn.close()
 
-    return {}
+    return {"key": "last_interaction_summary", "value": summary}
