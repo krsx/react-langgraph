@@ -147,7 +147,6 @@ export function ChatPage() {
                 className="sticky top-0 z-20 flex shrink-0 items-center justify-between border-b border-border/60 bg-background/95 px-4 py-2.5 backdrop-blur supports-[backdrop-filter]:bg-background/80"
               >
                 <div className="flex items-center gap-2">
-                  <Brain className="size-3.5 text-violet-500" />
                   <div>
                     <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
                       Trace
