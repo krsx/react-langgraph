@@ -25,6 +25,36 @@ def _sse(event_type: str, data: dict) -> str:
     return f"event: {event_type}\ndata: {json.dumps(data)}\n\n"
 
 
+def _normalize_tool_result(value: object) -> object:
+    if isinstance(value, str):
+        try:
+            return json.loads(value)
+        except json.JSONDecodeError:
+            return {"raw": value}
+    if isinstance(value, (dict, list, bool, int, float)) or value is None:
+        return value
+    return {"raw": str(value)}
+
+
+def _build_tool_result_payloads(thread_id: str, output: object) -> list[dict]:
+    if not isinstance(output, dict):
+        return [{"thread_id": thread_id, "tool_name": "tool", "results": _normalize_tool_result(output)}]
+
+    messages = output.get("messages")
+    if not isinstance(messages, list) or len(messages) == 0:
+        return [{"thread_id": thread_id, "tool_name": "tool", "results": _normalize_tool_result(output)}]
+
+    payloads: list[dict] = []
+    for message in messages:
+        payloads.append({
+            "thread_id": thread_id,
+            "tool_name": getattr(message, "name", "tool"),
+            "results": _normalize_tool_result(getattr(message, "content", None)),
+        })
+
+    return payloads
+
+
 def _persist_session_start(thread_id: str, customer_id: int, human_message: str) -> None:
     conn = get_connection()
     try:
@@ -118,10 +148,8 @@ async def _event_stream(req: ChatRequest) -> AsyncGenerator[str, None]:
 
             elif kind == "on_chain_end" and name == "tools":
                 output = data.get("output") or {}
-                yield _sse("tool_result", {
-                    "thread_id": thread_id,
-                    "results": str(output),
-                })
+                for payload in _build_tool_result_payloads(thread_id, output):
+                    yield _sse("tool_result", payload)
 
             elif kind == "on_chain_end" and name == "verifier":
                 output = data.get("output") or {}
@@ -134,7 +162,14 @@ async def _event_stream(req: ChatRequest) -> AsyncGenerator[str, None]:
                 })
 
             elif kind == "on_chain_end" and name == "memory_update":
-                yield _sse("memory_updated", {"thread_id": thread_id})
+                output = data.get("output") or {}
+                key = output.get("key") if isinstance(output, dict) else None
+                value = output.get("value") if isinstance(output, dict) else None
+                yield _sse("memory_updated", {
+                    "thread_id": thread_id,
+                    "key": key if isinstance(key, str) else "",
+                    "value": value if isinstance(value, str) else "",
+                })
 
             elif kind == "on_chat_model_stream":
                 chunk = data.get("chunk")

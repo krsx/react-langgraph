@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Status
 
-This repository is in early initialization — no application code exists yet. The project is intended to be a React + LangGraph application (inferred from the directory name and course context: `llm-app/react-langgraph`).
+This repository is an active full-stack React + LangGraph application with a routed frontend in `frontend/` and a FastAPI + LangGraph backend in `backend/`.
 
 ## Installed Skills
 
@@ -37,6 +37,11 @@ Single-context: one `CONTEXT.md` + `docs/adr/` at the repo root. See `docs/agent
 ## Development Commands
 
 ```bash
+# Frontend verification
+cd frontend && npm test
+cd frontend && npx tsc --noEmit
+cd frontend && npm run build
+
 # Run non-integration tests (no MySQL required)
 cd backend && uv run pytest -m "not integration" -v
 
@@ -51,6 +56,33 @@ docker compose up
 ```
 
 ## Architecture
+
+Frontend: React 19 + React Router + TanStack Query (`frontend/`)
+
+```
+frontend/
+├── src/App.tsx                 # QueryClientProvider + RouterProvider bootstrap
+├── src/routes.tsx              # Top-level route tree; wraps Layout with ChatProvider
+├── src/routes/
+│   ├── layout.tsx              # Shell layout with shadcn sidebar + session history
+│   ├── chat.tsx                # Chat page with ChatHeader, ConversationArea, AgentProcessPanel
+│   ├── data.tsx                # Data Explorer CRUD page
+│   └── memory.tsx              # Memory Manager page
+├── src/lib/chat-context.tsx    # Scoped local conversation state and streaming actions
+├── src/lib/conversation.ts     # Shared conversation view/turn types for live chat flow
+├── src/lib/api.ts              # Frontend API client helpers
+└── src/components/
+    ├── chat/                   # ChatHeader and ConversationArea
+    ├── process/                # Agent Process timeline
+    └── ui/                     # shadcn primitives used by live routes
+```
+
+Key frontend rules:
+
+- TanStack Query owns server state such as customers, providers, sessions, CRUD data, and memory entries.
+- `ChatProvider` owns only writable chat/session UI state and streaming transitions for the live `/chat` flow.
+- The routed shell in `layout.tsx` is the source of truth for navigation and session history.
+- Verify frontend changes with `npm test`, `npx tsc --noEmit`, and `npm run build`.
 
 Backend: FastAPI + LangGraph (Python 3.10, `backend/`)
 

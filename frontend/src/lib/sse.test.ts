@@ -37,4 +37,32 @@ describe("createSseParser", () => {
       { type: "response_end", thread_id: "thread-1", response: "Done" },
     ]);
   });
+
+  it("parses structured tool_result and memory_updated payloads", () => {
+    const events: ChatStreamEvent[] = [];
+    const parser = createSseParser((event) => {
+      events.push(event);
+    });
+
+    parser.push(
+      'event: tool_result\ndata: {"thread_id":"thread-1","tool_name":"order_lookup","results":{"order_id":12345,"status":"pending"}}\n\n' +
+        'event: memory_updated\ndata: {"thread_id":"thread-1","key":"last_interaction_summary","value":"Summary text"}\n\n',
+    );
+    parser.flush();
+
+    expect(events).toEqual([
+      {
+        type: "tool_result",
+        thread_id: "thread-1",
+        tool_name: "order_lookup",
+        results: { order_id: 12345, status: "pending" },
+      },
+      {
+        type: "memory_updated",
+        thread_id: "thread-1",
+        key: "last_interaction_summary",
+        value: "Summary text",
+      },
+    ]);
+  });
 });

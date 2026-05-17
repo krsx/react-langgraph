@@ -95,16 +95,43 @@ export function createMockFetch(config: MockApiConfig) {
     memoryByCustomerId.set(1, [...config.memory]);
   }
 
+  let customers = [...config.customers];
+  let orders = [...(config.orders ?? [])];
+  let complaints = [...(config.complaints ?? [])];
+
   const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
     const parsedUrl = new URL(url);
     const { pathname, searchParams } = parsedUrl;
 
-    if (pathname === "/customers") {
-      return new Response(JSON.stringify(config.customers), {
+    if (pathname === "/customers" && (!init?.method || init.method === "GET")) {
+      return new Response(JSON.stringify(customers), {
         status: 200,
         headers: { "Content-Type": "application/json" },
       });
+    }
+
+    if (pathname === "/customers" && init?.method === "POST") {
+      const body = JSON.parse(String(init.body)) as { name: string; email: string };
+      const newId = Math.max(0, ...customers.map((c) => c.customer_id)) + 1;
+      const newCustomer = { customer_id: newId, name: body.name, email: body.email, created_at: new Date().toISOString() };
+      customers = [...customers, newCustomer];
+      return new Response(JSON.stringify(newCustomer), { status: 201, headers: { "Content-Type": "application/json" } });
+    }
+
+    const customerMatch = pathname.match(/^\/customers\/(\d+)$/);
+    if (customerMatch) {
+      const customerId = Number(customerMatch[1]);
+      if (init?.method === "PUT") {
+        const body = JSON.parse(String(init.body)) as Partial<{ name: string; email: string }>;
+        customers = customers.map((c) => c.customer_id === customerId ? { ...c, ...body } : c);
+        const updated = customers.find((c) => c.customer_id === customerId);
+        return new Response(JSON.stringify(updated), { status: 200, headers: { "Content-Type": "application/json" } });
+      }
+      if (init?.method === "DELETE") {
+        customers = customers.filter((c) => c.customer_id !== customerId);
+        return new Response(JSON.stringify({ deleted: true, customer_id: customerId }), { status: 200, headers: { "Content-Type": "application/json" } });
+      }
     }
 
     if (pathname === "/providers") {
@@ -114,28 +141,72 @@ export function createMockFetch(config: MockApiConfig) {
       });
     }
 
-    if (pathname === "/orders") {
+    if (pathname === "/orders" && (!init?.method || init.method === "GET")) {
       const customerId = searchParams.get("customer_id");
-      const availableOrders = [...(config.orders ?? [])];
       const rows = customerId === null
-        ? availableOrders
-        : availableOrders.filter((order) => order.customer_id === Number(customerId));
+        ? orders
+        : orders.filter((order) => order.customer_id === Number(customerId));
       return new Response(JSON.stringify(rows), {
         status: 200,
         headers: { "Content-Type": "application/json" },
       });
     }
 
-    if (pathname === "/complaints") {
+    if (pathname === "/orders" && init?.method === "POST") {
+      const body = JSON.parse(String(init.body)) as { customer_id: number; product_name: string; status: string };
+      const newId = Math.max(0, ...orders.map((o) => o.order_id)) + 1;
+      const newOrder = { order_id: newId, customer_id: body.customer_id, product_name: body.product_name, status: body.status, order_date: new Date().toISOString(), delivery_date: null };
+      orders = [...orders, newOrder];
+      return new Response(JSON.stringify(newOrder), { status: 201, headers: { "Content-Type": "application/json" } });
+    }
+
+    const orderMatch = pathname.match(/^\/orders\/(\d+)$/);
+    if (orderMatch) {
+      const orderId = Number(orderMatch[1]);
+      if (init?.method === "PUT") {
+        const body = JSON.parse(String(init.body)) as Partial<{ customer_id: number; product_name: string; status: string }>;
+        orders = orders.map((o) => o.order_id === orderId ? { ...o, ...body } : o);
+        const updated = orders.find((o) => o.order_id === orderId);
+        return new Response(JSON.stringify(updated), { status: 200, headers: { "Content-Type": "application/json" } });
+      }
+      if (init?.method === "DELETE") {
+        orders = orders.filter((o) => o.order_id !== orderId);
+        return new Response(JSON.stringify({ deleted: true, order_id: orderId }), { status: 200, headers: { "Content-Type": "application/json" } });
+      }
+    }
+
+    if (pathname === "/complaints" && (!init?.method || init.method === "GET")) {
       const customerId = searchParams.get("customer_id");
-      const availableComplaints = [...(config.complaints ?? [])];
       const rows = customerId === null
-        ? availableComplaints
-        : availableComplaints.filter((complaint) => complaint.customer_id === Number(customerId));
+        ? complaints
+        : complaints.filter((complaint) => complaint.customer_id === Number(customerId));
       return new Response(JSON.stringify(rows), {
         status: 200,
         headers: { "Content-Type": "application/json" },
       });
+    }
+
+    if (pathname === "/complaints" && init?.method === "POST") {
+      const body = JSON.parse(String(init.body)) as { customer_id: number; order_id: number; issue: string; status: string };
+      const newId = Math.max(0, ...complaints.map((c) => c.complaint_id)) + 1;
+      const newComplaint = { complaint_id: newId, customer_id: body.customer_id, order_id: body.order_id, issue: body.issue, status: body.status, created_at: new Date().toISOString() };
+      complaints = [...complaints, newComplaint];
+      return new Response(JSON.stringify(newComplaint), { status: 201, headers: { "Content-Type": "application/json" } });
+    }
+
+    const complaintMatch = pathname.match(/^\/complaints\/(\d+)$/);
+    if (complaintMatch) {
+      const complaintId = Number(complaintMatch[1]);
+      if (init?.method === "PUT") {
+        const body = JSON.parse(String(init.body)) as Partial<{ customer_id: number; order_id: number; issue: string; status: string }>;
+        complaints = complaints.map((c) => c.complaint_id === complaintId ? { ...c, ...body } : c);
+        const updated = complaints.find((c) => c.complaint_id === complaintId);
+        return new Response(JSON.stringify(updated), { status: 200, headers: { "Content-Type": "application/json" } });
+      }
+      if (init?.method === "DELETE") {
+        complaints = complaints.filter((c) => c.complaint_id !== complaintId);
+        return new Response(JSON.stringify({ deleted: true, complaint_id: complaintId }), { status: 200, headers: { "Content-Type": "application/json" } });
+      }
     }
 
     if (pathname === "/sessions" && (!init?.method || init.method === "GET")) {

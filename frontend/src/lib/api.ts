@@ -25,14 +25,80 @@ export function getCustomers(): Promise<Customer[]> {
   return fetchJson<Customer[]>("/customers");
 }
 
+export function createCustomer(payload: { name: string; email: string }): Promise<Customer> {
+  return fetchJson<Customer>("/customers", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+}
+
+export function updateCustomer(customerId: number, payload: { name?: string; email?: string }): Promise<Customer> {
+  return fetchJson<Customer>(`/customers/${customerId}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+}
+
+export function deleteCustomer(customerId: number): Promise<{ deleted: boolean; customer_id: number }> {
+  return fetchJson<{ deleted: boolean; customer_id: number }>(`/customers/${customerId}`, {
+    method: "DELETE",
+  });
+}
+
 export function getOrders(customerId: number | null): Promise<Order[]> {
   const search = customerId === null ? "" : `?customer_id=${customerId}`;
   return fetchJson<Order[]>(`/orders${search}`);
 }
 
+export function createOrder(payload: { customer_id: number; product_name: string; status: string }): Promise<Order> {
+  return fetchJson<Order>("/orders", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+}
+
+export function updateOrder(orderId: number, payload: { customer_id?: number; product_name?: string; status?: string }): Promise<Order> {
+  return fetchJson<Order>(`/orders/${orderId}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+}
+
+export function deleteOrder(orderId: number): Promise<{ deleted: boolean; order_id: number }> {
+  return fetchJson<{ deleted: boolean; order_id: number }>(`/orders/${orderId}`, {
+    method: "DELETE",
+  });
+}
+
 export function getComplaints(customerId: number | null): Promise<Complaint[]> {
   const search = customerId === null ? "" : `?customer_id=${customerId}`;
   return fetchJson<Complaint[]>(`/complaints${search}`);
+}
+
+export function createComplaint(payload: { customer_id: number; order_id: number; issue: string; status: string }): Promise<Complaint> {
+  return fetchJson<Complaint>("/complaints", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+}
+
+export function updateComplaint(complaintId: number, payload: { customer_id?: number; order_id?: number; issue?: string; status?: string }): Promise<Complaint> {
+  return fetchJson<Complaint>(`/complaints/${complaintId}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+}
+
+export function deleteComplaint(complaintId: number): Promise<{ deleted: boolean; complaint_id: number }> {
+  return fetchJson<{ deleted: boolean; complaint_id: number }>(`/complaints/${complaintId}`, {
+    method: "DELETE",
+  });
 }
 
 export function getMemory(customerId: number): Promise<CustomerMemoryRecord[]> {
