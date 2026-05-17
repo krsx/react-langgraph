@@ -48,7 +48,8 @@ services:
     volumes:
       - ollama_data:/root/.ollama
     environment:
-      OLLAMA_DEFAULT_MODEL: ${OLLAMA_DEFAULT_MODEL:-qwen3:9b}
+      OLLAMA_DEFAULT_MODEL: ${OLLAMA_DEFAULT_MODEL:-qwen3:4b}
+    entrypoint: ["/bin/sh", "-c", "ollama serve & until ollama list; do sleep 2; done && ollama pull ${OLLAMA_DEFAULT_MODEL:-qwen3:4b} && wait"]
     healthcheck:
       test: ["CMD-SHELL", "ollama list || exit 1"]
       interval: 30s
