@@ -277,7 +277,7 @@ function formatValue(v: unknown): string {
 
 function KVRow({ label, value }: { label: string; value: string }) {
   return (
-    <div className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 rounded-lg bg-muted/50 px-3 py-2 font-mono text-xs">
+    <div className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 rounded-none bg-muted/50 px-3 py-2 font-mono text-xs">
       <span className="shrink-0 font-semibold text-foreground/70">{label}</span>
       <span className="min-w-0 break-all text-foreground">{value}</span>
     </div>
@@ -296,7 +296,7 @@ function MemoryLayer2({ context }: { context: MemoryContextEntry[] }) {
         entry.type === "memory" ? (
           <KVRow key={i} label={entry.key} value={entry.value} />
         ) : (
-          <div key={i} className="rounded-lg bg-muted/50 px-3 py-2 font-mono text-xs">
+          <div key={i} className="rounded-none bg-muted/50 px-3 py-2 font-mono text-xs">
             <span className="font-semibold text-foreground/70">complaint</span>
             <span className="ml-3 text-foreground">{entry.issue}</span>
           </div>
@@ -324,7 +324,7 @@ function PlannerLayer2({
             Tool Calls
           </p>
           {toolCalls.map((tc, i) => (
-            <div key={i} className="rounded-lg bg-muted/50 px-3 py-2 font-mono text-xs">
+            <div key={i} className="rounded-none bg-muted/50 px-3 py-2 font-mono text-xs">
               <p className="font-semibold text-foreground/70">{tc.name}</p>
               <div className="mt-1.5 space-y-1">
                 {Object.entries(tc.args).map(([k, v]) => (
@@ -345,7 +345,7 @@ function PlannerLayer2({
 function ToolLayer2({ results }: { results: JsonValue }) {
   if (results === null || typeof results !== "object" || Array.isArray(results)) {
     return (
-      <pre className="rounded-lg bg-muted/50 p-3 font-mono text-xs text-foreground/80">
+      <pre className="rounded-none bg-muted/50 p-3 font-mono text-xs text-foreground/80">
         {JSON.stringify(results, null, 2)}
       </pre>
     );
@@ -382,7 +382,7 @@ function VerifierLayer2({
         </div>
       ))}
       {overrideMessage ? (
-        <p className="mt-2 rounded-lg border border-amber-300/30 bg-amber-50/50 px-3 py-2 text-xs text-amber-700 dark:bg-amber-950/20 dark:text-amber-400">
+        <p className="mt-2 rounded-none border border-amber-300/30 bg-amber-50/50 px-3 py-2 text-xs text-amber-700 dark:bg-amber-950/20 dark:text-amber-400">
           {overrideMessage}
         </p>
       ) : null}
@@ -444,8 +444,8 @@ function TimelineStep({
 
         {/* Layer 2: verbose content */}
         {layer2Open && (
-          <div className="mt-3 space-y-3 rounded-xl border border-border/50 bg-card/50 p-3">
-            <div className="rounded-lg bg-secondary px-3 py-2.5">
+          <div className="mt-3 space-y-3 rounded-none border border-border/50 bg-card/50 p-3">
+            <div className="rounded-none bg-secondary px-3 py-2.5">
               {step.kind === "memory_loaded" && <MemoryLayer2 context={step.context} />}
               {step.kind === "planner" && (
                 <PlannerLayer2 content={step.content} toolCalls={step.toolCalls} />
@@ -472,7 +472,7 @@ function TimelineStep({
               {layer3Open ? "Hide payload" : "View payload"}
             </button>
             {layer3Open && (
-              <pre className="overflow-x-auto rounded-lg bg-muted/60 p-3 font-mono text-[10px] leading-relaxed text-muted-foreground">
+              <pre className="overflow-x-auto rounded-none bg-muted/60 p-3 font-mono text-[10px] leading-relaxed text-muted-foreground">
                 {step.rawJson}
               </pre>
             )}
