@@ -45,11 +45,29 @@ def test_memory_loader_returns_complaint_entries_for_customer():
 
 @pytest.mark.integration
 def test_memory_loader_returns_empty_list_for_customer_with_no_data():
+    from db.connection import get_connection
     from graph.memory_loader import memory_loader
 
-    result = memory_loader(make_state(2))
+    customer_id = 999999
+    conn = get_connection()
 
-    assert result["memory_context"] == []
+    try:
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM customers WHERE customer_id = %s", (customer_id,))
+        cursor.execute(
+            "INSERT INTO customers (customer_id, name, email) VALUES (%s, %s, %s)",
+            (customer_id, "Empty Customer", "empty.customer@example.com"),
+        )
+        conn.commit()
+
+        result = memory_loader(make_state(customer_id))
+
+        assert result["memory_context"] == []
+    finally:
+        cleanup_cursor = conn.cursor()
+        cleanup_cursor.execute("DELETE FROM customers WHERE customer_id = %s", (customer_id,))
+        conn.commit()
+        conn.close()
 
 
 # ── Cycle 4: Memory Update writes last_interaction_summary ──────────────────
