@@ -39,6 +39,7 @@ CREATE TABLE IF NOT EXISTS customer_memory (
 CREATE TABLE IF NOT EXISTS sessions (
     thread_id   VARCHAR(100) PRIMARY KEY,
     customer_id INT,
+    agent_type  VARCHAR(50) DEFAULT 'customer_service',
     created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     ended_at    TIMESTAMP NULL,
     FOREIGN KEY (customer_id) REFERENCES customers(customer_id)
