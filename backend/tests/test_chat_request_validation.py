@@ -21,7 +21,7 @@ def test_chat_request_agent_type_defaults_to_customer_service():
 # ── Cycle 2: customer_service agent requires customer_id ──────────────────────
 
 def test_customer_service_without_customer_id_returns_422():
-    with patch("routes.chat.get_async_graph", new=AsyncMock()) as mock:
+    with patch("routes.chat._get_async_graph", new=AsyncMock()) as mock:
         mock.return_value.astream_events = _empty_stream
         from main import app
         client = TestClient(app, raise_server_exceptions=False)
@@ -34,7 +34,7 @@ def test_customer_service_without_customer_id_returns_422():
 
 
 def test_customer_service_with_customer_id_is_accepted():
-    with patch("routes.chat.get_async_graph", new=AsyncMock()) as mock:
+    with patch("routes.chat._get_async_graph", new=AsyncMock()) as mock:
         mock.return_value.astream_events = _empty_stream
         from main import app
         client = TestClient(app)
@@ -49,7 +49,7 @@ def test_customer_service_with_customer_id_is_accepted():
 # ── Cycle 3: workspace agents reject customer_id ──────────────────────────────
 
 def test_refund_email_agent_with_customer_id_returns_422():
-    with patch("routes.chat.get_async_graph", new=AsyncMock()) as mock:
+    with patch("routes.chat._get_async_graph", new=AsyncMock()) as mock:
         mock.return_value.astream_events = _empty_stream
         from main import app
         client = TestClient(app, raise_server_exceptions=False)
@@ -62,7 +62,7 @@ def test_refund_email_agent_with_customer_id_returns_422():
 
 
 def test_calendar_agent_with_customer_id_returns_422():
-    with patch("routes.chat.get_async_graph", new=AsyncMock()) as mock:
+    with patch("routes.chat._get_async_graph", new=AsyncMock()) as mock:
         mock.return_value.astream_events = _empty_stream
         from main import app
         client = TestClient(app, raise_server_exceptions=False)
@@ -75,7 +75,7 @@ def test_calendar_agent_with_customer_id_returns_422():
 
 
 def test_refund_email_agent_without_customer_id_is_accepted():
-    with patch("routes.chat.get_async_graph", new=AsyncMock()) as mock:
+    with patch("routes.chat._get_async_graph", new=AsyncMock()) as mock:
         mock.return_value.astream_events = _empty_stream
         from main import app
         client = TestClient(app)
@@ -90,7 +90,7 @@ def test_refund_email_agent_without_customer_id_is_accepted():
 # ── Cycle 4: unknown agent_type is rejected ───────────────────────────────────
 
 def test_unknown_agent_type_returns_422():
-    with patch("routes.chat.get_async_graph", new=AsyncMock()) as mock:
+    with patch("routes.chat._get_async_graph", new=AsyncMock()) as mock:
         mock.return_value.astream_events = _empty_stream
         from main import app
         client = TestClient(app, raise_server_exceptions=False)

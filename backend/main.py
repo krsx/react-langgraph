@@ -4,6 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from graph.customer_service.graph import close_async_graph
+from graph.mcp_client import mcp_manager
 from routes.chat import router as chat_router
 from routes.data import router as data_router
 from routes.memory import router as memory_router
@@ -13,8 +14,11 @@ from routes.sessions import router as sessions_router
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    await mcp_manager.start()
+    app.state.mcp_client = mcp_manager
     yield
     await close_async_graph()
+    await mcp_manager.stop()
 
 
 app = FastAPI(title="React LangGraph Backend", lifespan=lifespan)

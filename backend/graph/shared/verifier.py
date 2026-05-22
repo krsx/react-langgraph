@@ -4,6 +4,14 @@ from langchain_core.messages import AIMessage, ToolMessage
 from graph.shared.state import AgentState
 
 
+def _is_json(text: str) -> bool:
+    try:
+        json.loads(text)
+        return True
+    except (json.JSONDecodeError, TypeError):
+        return False
+
+
 def _parse_tool_content(tm: ToolMessage) -> dict:
     try:
         content = json.loads(tm.content) if isinstance(tm.content, str) else tm.content
@@ -24,14 +32,45 @@ def verifier(state: AgentState) -> dict:
 
     parsed_results = [_parse_tool_content(tm) for tm in tool_messages]
 
+    _MCP_PATTERNS = ("permission denied", "authentication", "rate limit", "quota", "jsonrpc error")
+
+    def _mcp_error(text: str) -> str | None:
+        lower = text.lower()
+        for pat in _MCP_PATTERNS:
+            if pat in lower:
+                return text
+        return None
+
     errors = [c["error"] for c in parsed_results if "error" in c]
+
+    mcp_errors: list[str] = []
+    for c in parsed_results:
+        if isinstance(c, dict):
+            for v in c.values():
+                if isinstance(v, str):
+                    hit = _mcp_error(v)
+                    if hit:
+                        mcp_errors.append(hit)
+        elif isinstance(c, str):
+            hit = _mcp_error(c)
+            if hit:
+                mcp_errors.append(hit)
+
+    for tm in tool_messages:
+        if isinstance(tm.content, str) and "error" not in (
+            json.loads(tm.content) if _is_json(tm.content) else {}
+        ):
+            hit = _mcp_error(tm.content)
+            if hit:
+                mcp_errors.append(hit)
+
     empty_lookups = [
         f"empty result for '{k}'"
         for c in parsed_results
         for k, v in c.items()
         if isinstance(v, list) and len(v) == 0
     ]
-    all_issues = errors + empty_lookups
+    all_issues = errors + mcp_errors + empty_lookups
 
     if not all_issues:
         return {

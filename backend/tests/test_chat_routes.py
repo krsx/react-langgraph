@@ -177,7 +177,7 @@ def _make_memory_updated_stream():
 # ── Cycle 1: Endpoint returns SSE content-type ───────────────────────────────
 
 def test_chat_stream_returns_sse_content_type():
-    with patch("routes.chat.get_async_graph", new=AsyncMock()) as get_async_graph:
+    with patch("routes.chat._get_async_graph", new=AsyncMock()) as get_async_graph:
         mock_graph = get_async_graph.return_value
         mock_graph.astream_events = _empty_stream
         from main import app
@@ -211,7 +211,7 @@ def test_cors_allows_localhost_5173():
 def test_new_session_generates_uuid_thread_id_in_first_event():
     import re
 
-    with patch("routes.chat.get_async_graph", new=AsyncMock()) as get_async_graph:
+    with patch("routes.chat._get_async_graph", new=AsyncMock()) as get_async_graph:
         mock_graph = get_async_graph.return_value
         mock_graph.astream_events = _empty_stream
         from main import app
@@ -235,7 +235,7 @@ def test_new_session_generates_uuid_thread_id_in_first_event():
 def test_existing_session_echoes_thread_id():
     provided_id = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
 
-    with patch("routes.chat.get_async_graph", new=AsyncMock()) as get_async_graph:
+    with patch("routes.chat._get_async_graph", new=AsyncMock()) as get_async_graph:
         mock_graph = get_async_graph.return_value
         mock_graph.astream_events = _empty_stream
         from main import app
@@ -256,7 +256,7 @@ def test_existing_session_echoes_thread_id():
 def test_all_sse_event_types_emitted_on_full_graph_run():
     fixed_thread_id = "11111111-2222-3333-4444-555555555555"
 
-    with patch("routes.chat.get_async_graph", new=AsyncMock()) as get_async_graph:
+    with patch("routes.chat._get_async_graph", new=AsyncMock()) as get_async_graph:
         mock_graph = get_async_graph.return_value
         mock_graph.astream_events = _make_full_stream(fixed_thread_id)
         from main import app
@@ -295,7 +295,7 @@ def test_all_sse_event_types_emitted_on_full_graph_run():
 def test_sse_event_data_shapes():
     fixed_thread_id = "11111111-2222-3333-4444-555555555555"
 
-    with patch("routes.chat.get_async_graph", new=AsyncMock()) as get_async_graph:
+    with patch("routes.chat._get_async_graph", new=AsyncMock()) as get_async_graph:
         mock_graph = get_async_graph.return_value
         mock_graph.astream_events = _make_full_stream(fixed_thread_id)
         from main import app
@@ -341,7 +341,7 @@ def test_sse_event_data_shapes():
 def test_tool_result_event_includes_tool_name_and_structured_json_results():
     fixed_thread_id = "11111111-2222-3333-4444-555555555555"
 
-    with patch("routes.chat.get_async_graph", new=AsyncMock()) as get_async_graph:
+    with patch("routes.chat._get_async_graph", new=AsyncMock()) as get_async_graph:
         mock_graph = get_async_graph.return_value
         mock_graph.astream_events = _make_single_tool_result_stream()
         from main import app
@@ -368,7 +368,7 @@ def test_tool_result_event_includes_tool_name_and_structured_json_results():
 def test_multi_tool_turn_emits_one_tool_result_event_per_tool_message():
     fixed_thread_id = "11111111-2222-3333-4444-555555555555"
 
-    with patch("routes.chat.get_async_graph", new=AsyncMock()) as get_async_graph:
+    with patch("routes.chat._get_async_graph", new=AsyncMock()) as get_async_graph:
         mock_graph = get_async_graph.return_value
         mock_graph.astream_events = _make_multi_tool_result_stream()
         from main import app
@@ -404,7 +404,7 @@ def test_multi_tool_turn_emits_one_tool_result_event_per_tool_message():
 def test_memory_updated_event_includes_written_key_and_value():
     fixed_thread_id = "11111111-2222-3333-4444-555555555555"
 
-    with patch("routes.chat.get_async_graph", new=AsyncMock()) as get_async_graph:
+    with patch("routes.chat._get_async_graph", new=AsyncMock()) as get_async_graph:
         mock_graph = get_async_graph.return_value
         mock_graph.astream_events = _make_memory_updated_stream()
         from main import app
@@ -436,7 +436,7 @@ def test_graph_error_yields_error_sse_event():
         raise RuntimeError("graph exploded")
         yield  # noqa: unreachable
 
-    with patch("routes.chat.get_async_graph", new=AsyncMock()) as get_async_graph:
+    with patch("routes.chat._get_async_graph", new=AsyncMock()) as get_async_graph:
         mock_graph = get_async_graph.return_value
         mock_graph.astream_events = _exploding_stream
         from main import app

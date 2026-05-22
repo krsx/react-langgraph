@@ -8,7 +8,7 @@ from pydantic import BaseModel, model_validator
 
 from config import get_config
 from db.connection import get_connection
-from graph.customer_service.graph import get_async_graph
+from graph.router import get_async_graph as _get_async_graph
 
 router = APIRouter(prefix="/chat")
 
@@ -125,7 +125,7 @@ async def _event_stream(req: ChatRequest) -> AsyncGenerator[str, None]:
     _persist_session_start(thread_id, req.customer_id, req.message, req.agent_type)
 
     try:
-        graph = await get_async_graph()
+        graph = await _get_async_graph(req.agent_type)
         async for event in graph.astream_events(input_state, config=config, version="v2"):
             name = event.get("name", "")
             kind = event.get("event", "")

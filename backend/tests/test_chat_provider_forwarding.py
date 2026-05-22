@@ -48,7 +48,7 @@ def test_provider_uses_env_default_model_in_graph_configurable():
         },
     )()
 
-    with patch("routes.chat.get_async_graph", new=AsyncMock()) as get_async_graph, \
+    with patch("routes.chat._get_async_graph", new=AsyncMock()) as get_async_graph, \
          patch("routes.chat.get_config", return_value=cfg):
         mock_graph = get_async_graph.return_value
         mock_graph.astream_events = _capturing_stream
@@ -84,7 +84,7 @@ def test_no_provider_uses_openrouter_env_default_model():
         },
     )()
 
-    with patch("routes.chat.get_async_graph", new=AsyncMock()) as get_async_graph, \
+    with patch("routes.chat._get_async_graph", new=AsyncMock()) as get_async_graph, \
          patch("routes.chat.get_config", return_value=cfg):
         mock_graph = get_async_graph.return_value
         mock_graph.astream_events = _capturing_stream

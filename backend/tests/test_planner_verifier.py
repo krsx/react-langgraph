@@ -224,6 +224,86 @@ def test_verifier_appends_override_message_to_messages():
     assert result["verification"]["override_message"] in override_msg.content
 
 
+# ── Cycle 12: verifier detects MCP error patterns in raw ToolMessage strings ──
+
+def test_verifier_detects_permission_denied_in_raw_tool_message():
+    from graph.shared.verifier import verifier
+    from langchain_core.messages import ToolMessage
+
+    state = make_state(messages=[
+        HumanMessage(content="Send refund email"),
+        AIMessage(content="", tool_calls=[{"id": "tc1", "name": "send_message", "args": {}}]),
+        ToolMessage(content="permission denied: gmail.send not authorized", tool_call_id="tc1"),
+        AIMessage(content="Email sent successfully!"),
+    ])
+    result = verifier(state)
+
+    assert result["verification"]["valid"] is False
+    assert result["verification"]["override_message"] is not None
+
+
+def test_verifier_detects_authentication_failure_in_raw_tool_message():
+    from graph.shared.verifier import verifier
+    from langchain_core.messages import ToolMessage
+
+    state = make_state(messages=[
+        HumanMessage(content="List calendar events"),
+        AIMessage(content="", tool_calls=[{"id": "tc1", "name": "list_events", "args": {}}]),
+        ToolMessage(content="Authentication failed: token expired", tool_call_id="tc1"),
+        AIMessage(content="Here are your events for today."),
+    ])
+    result = verifier(state)
+
+    assert result["verification"]["valid"] is False
+
+
+def test_verifier_detects_jsonrpc_error_in_raw_tool_message():
+    from graph.shared.verifier import verifier
+    from langchain_core.messages import ToolMessage
+
+    state = make_state(messages=[
+        HumanMessage(content="Create event"),
+        AIMessage(content="", tool_calls=[{"id": "tc1", "name": "create_event", "args": {}}]),
+        ToolMessage(content="jsonrpc error -32603: internal error from workspace-mcp", tool_call_id="tc1"),
+        AIMessage(content="Event created successfully."),
+    ])
+    result = verifier(state)
+
+    assert result["verification"]["valid"] is False
+
+
+def test_verifier_detects_mcp_error_in_dict_value():
+    from graph.shared.verifier import verifier
+    import json
+    from langchain_core.messages import ToolMessage
+
+    state = make_state(messages=[
+        HumanMessage(content="Send email"),
+        AIMessage(content="", tool_calls=[{"id": "tc1", "name": "send_message", "args": {}}]),
+        ToolMessage(content=json.dumps({"result": "permission denied: insufficient scope"}), tool_call_id="tc1"),
+        AIMessage(content="Email sent!"),
+    ])
+    result = verifier(state)
+
+    assert result["verification"]["valid"] is False
+
+
+def test_verifier_does_not_flag_clean_mcp_tool_result():
+    from graph.shared.verifier import verifier
+    import json
+    from langchain_core.messages import ToolMessage
+
+    state = make_state(messages=[
+        HumanMessage(content="List today's events"),
+        AIMessage(content="", tool_calls=[{"id": "tc1", "name": "today_events", "args": {}}]),
+        ToolMessage(content=json.dumps({"events": [{"title": "Standup", "time": "09:00"}]}), tool_call_id="tc1"),
+        AIMessage(content="You have a standup at 9am."),
+    ])
+    result = verifier(state)
+
+    assert result["verification"]["valid"] is True
+
+
 def test_verifier_does_not_append_messages_when_llm_acknowledged():
     from graph.shared.verifier import verifier
 

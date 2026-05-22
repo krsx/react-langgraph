@@ -12,6 +12,7 @@ dependencies = [
     "httpx",
     "mysql-connector-python",
     "python-dotenv",
+    "langchain-mcp-adapters",
 ]
 
 [dependency-groups]
