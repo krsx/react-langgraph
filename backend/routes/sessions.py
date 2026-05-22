@@ -12,7 +12,7 @@ def list_sessions():
         cursor = conn.cursor(dictionary=True)
         cursor.execute(
             """
-            SELECT s.thread_id, s.customer_id, s.created_at,
+            SELECT s.thread_id, s.customer_id, s.agent_type, s.created_at,
                    (SELECT content FROM session_messages
                     WHERE thread_id = s.thread_id AND role = 'human'
                     ORDER BY created_at ASC LIMIT 1) AS first_message
@@ -30,8 +30,12 @@ def get_session(session_id: str):
     conn = get_connection()
     try:
         cursor = conn.cursor(dictionary=True)
-        cursor.execute("SELECT thread_id FROM sessions WHERE thread_id = %s", (session_id,))
-        if cursor.fetchone() is None:
+        cursor.execute(
+            "SELECT thread_id, customer_id, agent_type, created_at FROM sessions WHERE thread_id = %s",
+            (session_id,),
+        )
+        session_row = cursor.fetchone()
+        if session_row is None:
             raise HTTPException(status_code=404, detail="Session not found")
         cursor.execute(
             """
@@ -42,6 +46,6 @@ def get_session(session_id: str):
             """,
             (session_id,),
         )
-        return cursor.fetchall()
+        return {"session": session_row, "messages": cursor.fetchall()}
     finally:
         conn.close()

@@ -34,8 +34,8 @@ def test_planner_uses_ollama_when_configured(monkeypatch):
     mock_llm = MagicMock()
     mock_llm.bind_tools.return_value.invoke.return_value = AIMessage(content="hi")
 
-    with patch("graph.planner.create_llm", return_value=mock_llm) as mock_factory:
-        from graph.planner import planner
+    with patch("graph.customer_service.planner.create_llm", return_value=mock_llm) as mock_factory:
+        from graph.customer_service.planner import planner
 
         config = {"configurable": {"thread_id": "t1", "customer_id": 1, "provider": "ollama", "model": "llama3"}}
         planner(_make_state(), config)
@@ -50,8 +50,8 @@ def test_planner_uses_openrouter_when_configured(monkeypatch):
     mock_llm = MagicMock()
     mock_llm.bind_tools.return_value.invoke.return_value = AIMessage(content="hi")
 
-    with patch("graph.planner.create_llm", return_value=mock_llm) as mock_factory:
-        from graph.planner import planner
+    with patch("graph.customer_service.planner.create_llm", return_value=mock_llm) as mock_factory:
+        from graph.customer_service.planner import planner
 
         config = {"configurable": {"thread_id": "t1", "customer_id": 1, "provider": "openrouter", "model": None}}
         planner(_make_state(), config)
@@ -66,8 +66,8 @@ def test_planner_defaults_to_no_provider_when_not_in_config(monkeypatch):
     mock_llm = MagicMock()
     mock_llm.bind_tools.return_value.invoke.return_value = AIMessage(content="hi")
 
-    with patch("graph.planner.create_llm", return_value=mock_llm) as mock_factory:
-        from graph.planner import planner
+    with patch("graph.customer_service.planner.create_llm", return_value=mock_llm) as mock_factory:
+        from graph.customer_service.planner import planner
 
         config = {"configurable": {"thread_id": "t1", "customer_id": 1}}
         planner(_make_state(), config)

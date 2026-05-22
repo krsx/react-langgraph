@@ -1,7 +1,7 @@
 import json
 from langchain_core.messages import AIMessage, ToolMessage
 
-from graph.state import AgentState
+from graph.shared.state import AgentState
 
 
 def _parse_tool_content(tm: ToolMessage) -> dict:

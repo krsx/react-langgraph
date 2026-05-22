@@ -2,7 +2,7 @@ from langchain_core.messages import HumanMessage, ToolMessage
 
 
 def test_memory_update_returns_written_key_and_value(monkeypatch):
-    from graph.memory_update import memory_update
+    from graph.customer_service.memory_update import memory_update
 
     class _Conn:
         def cursor(self, *args, **kwargs):
@@ -18,7 +18,7 @@ def test_memory_update_returns_written_key_and_value(monkeypatch):
         def close(self):
             return None
 
-    monkeypatch.setattr("graph.memory_update.get_connection", lambda: _Conn())
+    monkeypatch.setattr("graph.customer_service.memory_update.get_connection", lambda: _Conn())
 
     state = {
         "customer_id": 1,

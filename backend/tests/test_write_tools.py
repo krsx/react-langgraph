@@ -26,7 +26,7 @@ def reset_order_7890():
 
 @pytest.mark.integration
 def test_refund_succeeds_for_delivered_order(reset_order_7890):
-    from graph.tools import refund
+    from graph.customer_service.tools import refund
 
     result = refund.invoke({"order_id": 7890}, config=CONFIG)
 
@@ -39,7 +39,7 @@ def test_refund_succeeds_for_delivered_order(reset_order_7890):
 
 @pytest.mark.integration
 def test_refund_returns_error_for_ineligible_status():
-    from graph.tools import refund
+    from graph.customer_service.tools import refund
 
     result = refund.invoke({"order_id": 1001}, config=CONFIG)
 
@@ -51,7 +51,7 @@ def test_refund_returns_error_for_ineligible_status():
 
 @pytest.mark.integration
 def test_refund_returns_error_for_nonexistent_order():
-    from graph.tools import refund
+    from graph.customer_service.tools import refund
 
     result = refund.invoke({"order_id": 0}, config=CONFIG)
 
@@ -61,7 +61,7 @@ def test_refund_returns_error_for_nonexistent_order():
 
 @pytest.mark.integration
 def test_refund_returns_error_for_cross_customer_access():
-    from graph.tools import refund
+    from graph.customer_service.tools import refund
 
     result = refund.invoke({"order_id": 7890}, config=OTHER_CONFIG)
 
@@ -73,7 +73,7 @@ def test_refund_returns_error_for_cross_customer_access():
 
 @pytest.mark.integration
 def test_complaint_logger_returns_complaint_id():
-    from graph.tools import complaint_logger
+    from graph.customer_service.tools import complaint_logger
 
     result = complaint_logger.invoke(
         {"order_id": 2222, "issue": "Item arrived damaged"}, config=CONFIG
@@ -88,7 +88,7 @@ def test_complaint_logger_returns_complaint_id():
 
 @pytest.mark.integration
 def test_memory_tool_read_returns_all_entries():
-    from graph.tools import memory_tool
+    from graph.customer_service.tools import memory_tool
 
     result = memory_tool.invoke({"action": "read"}, config=CONFIG)
 
@@ -101,7 +101,7 @@ def test_memory_tool_read_returns_all_entries():
 
 @pytest.mark.integration
 def test_memory_tool_read_filters_by_key():
-    from graph.tools import memory_tool
+    from graph.customer_service.tools import memory_tool
 
     result = memory_tool.invoke(
         {"action": "read", "key": "late_delivery_pattern"}, config=CONFIG
@@ -116,7 +116,7 @@ def test_memory_tool_read_filters_by_key():
 
 @pytest.mark.integration
 def test_memory_tool_write_upserts_on_repeat_key():
-    from graph.tools import memory_tool
+    from graph.customer_service.tools import memory_tool
     from db.connection import get_connection
 
     memory_tool.invoke(
@@ -144,7 +144,7 @@ def test_memory_tool_write_upserts_on_repeat_key():
 
 @pytest.mark.integration
 def test_memory_tool_returns_error_for_unknown_action():
-    from graph.tools import memory_tool
+    from graph.customer_service.tools import memory_tool
 
     result = memory_tool.invoke({"action": "delete"}, config=CONFIG)
 

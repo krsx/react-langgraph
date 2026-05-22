@@ -44,10 +44,10 @@ def test_get_sessions_returns_list():
     assert "first_message" in data[0]
 
 
-# ── Cycle 11: GET /sessions/{id} returns ordered messages ─────────────────────
+# ── Cycle 11: GET /sessions/{id} returns ordered messages with agent_type ──────
 
 def test_get_session_messages_returns_ordered_list():
-    session_row = {"thread_id": "abc-123"}
+    session_row = {"thread_id": "abc-123", "agent_type": "customer_service", "customer_id": 1}
     messages = [
         {"message_id": 1, "role": "human", "content": "Hello", "created_at": "2026-05-01 10:00:00"},
         {"message_id": 2, "role": "ai", "content": "Hi there!", "created_at": "2026-05-01 10:00:01"},
@@ -64,9 +64,12 @@ def test_get_session_messages_returns_ordered_list():
 
     assert resp.status_code == 200
     data = resp.json()
-    assert len(data) == 2
-    assert data[0]["role"] == "human"
-    assert data[1]["role"] == "ai"
+    assert "session" in data
+    assert "messages" in data
+    assert data["session"]["agent_type"] == "customer_service"
+    assert len(data["messages"]) == 2
+    assert data["messages"][0]["role"] == "human"
+    assert data["messages"][1]["role"] == "ai"
 
 
 # ── Cycle 12: GET /sessions/{id} returns 404 for unknown session ──────────────

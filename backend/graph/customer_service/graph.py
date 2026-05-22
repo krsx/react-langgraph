@@ -6,18 +6,18 @@ from langgraph.checkpoint.sqlite import SqliteSaver
 from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
 from langgraph.prebuilt import ToolNode, tools_condition
 
-from graph.state import AgentState
-from graph.memory_loader import memory_loader
-from graph.planner import planner
-from graph.tools import (
+from graph.shared.state import AgentState
+from graph.customer_service.memory_loader import memory_loader
+from graph.customer_service.planner import planner
+from graph.customer_service.tools import (
     order_lookup,
     customer_profile,
     refund,
     complaint_logger,
     memory_tool,
 )
-from graph.verifier import verifier
-from graph.memory_update import memory_update
+from graph.shared.verifier import verifier
+from graph.customer_service.memory_update import memory_update
 
 CHECKPOINT_DB_PATH = "checkpoints.db"
 RECURSION_LIMIT = 10

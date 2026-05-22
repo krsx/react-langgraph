@@ -4,21 +4,35 @@ from typing import AsyncGenerator
 
 from fastapi import APIRouter
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, model_validator
 
 from config import get_config
 from db.connection import get_connection
-from graph.graph import get_async_graph
+from graph.customer_service.graph import get_async_graph
 
 router = APIRouter(prefix="/chat")
+
+_WORKSPACE_AGENT_TYPES = {"refund_email", "calendar"}
+_ALL_AGENT_TYPES = {"customer_service"} | _WORKSPACE_AGENT_TYPES
 
 
 class ChatRequest(BaseModel):
     message: str
-    customer_id: int
+    customer_id: int | None = None
+    agent_type: str = "customer_service"
     thread_id: str | None = None
     provider: str | None = None
     model: str | None = None
+
+    @model_validator(mode="after")
+    def validate_agent_type_and_customer_id(self) -> "ChatRequest":
+        if self.agent_type not in _ALL_AGENT_TYPES:
+            raise ValueError(f"Unknown agent_type '{self.agent_type}'. Must be one of: {sorted(_ALL_AGENT_TYPES)}")
+        if self.agent_type == "customer_service" and self.customer_id is None:
+            raise ValueError("customer_id is required for agent_type 'customer_service'")
+        if self.agent_type in _WORKSPACE_AGENT_TYPES and self.customer_id is not None:
+            raise ValueError(f"customer_id must not be provided for workspace agent_type '{self.agent_type}'")
+        return self
 
 
 def _sse(event_type: str, data: dict) -> str:
@@ -55,13 +69,13 @@ def _build_tool_result_payloads(thread_id: str, output: object) -> list[dict]:
     return payloads
 
 
-def _persist_session_start(thread_id: str, customer_id: int, human_message: str) -> None:
+def _persist_session_start(thread_id: str, customer_id: int | None, human_message: str, agent_type: str) -> None:
     conn = get_connection()
     try:
         cursor = conn.cursor()
         cursor.execute(
-            "INSERT IGNORE INTO sessions (thread_id, customer_id) VALUES (%s, %s)",
-            (thread_id, customer_id),
+            "INSERT IGNORE INTO sessions (thread_id, customer_id, agent_type) VALUES (%s, %s, %s)",
+            (thread_id, customer_id, agent_type),
         )
         cursor.execute(
             "INSERT INTO session_messages (thread_id, role, content) VALUES (%s, %s, %s)",
@@ -108,7 +122,7 @@ async def _event_stream(req: ChatRequest) -> AsyncGenerator[str, None]:
 
     response_tokens: list[str] = []
 
-    _persist_session_start(thread_id, req.customer_id, req.message)
+    _persist_session_start(thread_id, req.customer_id, req.message, req.agent_type)
 
     try:
         graph = await get_async_graph()

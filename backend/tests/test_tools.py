@@ -11,7 +11,7 @@ OTHER_CONFIG = {"configurable": {"customer_id": 2, "thread_id": "test-tools"}}
 
 @pytest.mark.integration
 def test_order_lookup_returns_order_dict_for_valid_order():
-    from graph.tools import order_lookup
+    from graph.customer_service.tools import order_lookup
 
     result = order_lookup.invoke({"order_id": 5678}, config=CONFIG)
 
@@ -27,7 +27,7 @@ def test_order_lookup_returns_order_dict_for_valid_order():
 
 @pytest.mark.integration
 def test_order_lookup_returns_error_for_nonexistent_order():
-    from graph.tools import order_lookup
+    from graph.customer_service.tools import order_lookup
 
     result = order_lookup.invoke({"order_id": 0}, config=CONFIG)
 
@@ -39,7 +39,7 @@ def test_order_lookup_returns_error_for_nonexistent_order():
 
 @pytest.mark.integration
 def test_order_lookup_rejects_cross_customer_access():
-    from graph.tools import order_lookup
+    from graph.customer_service.tools import order_lookup
 
     result = order_lookup.invoke({"order_id": 5678}, config=OTHER_CONFIG)
 
@@ -50,7 +50,7 @@ def test_order_lookup_rejects_cross_customer_access():
 
 @pytest.mark.integration
 def test_customer_profile_returns_customer_dict():
-    from graph.tools import customer_profile
+    from graph.customer_service.tools import customer_profile
 
     result = customer_profile.invoke({}, config=CONFIG)
 

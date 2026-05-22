@@ -20,7 +20,7 @@ def make_state(messages=None, memory_context=None):
 # ── Cycle 1: Verifier valid=True when no tool errors ────────────────────────
 
 def test_verifier_valid_when_no_tool_messages():
-    from graph.verifier import verifier
+    from graph.shared.verifier import verifier
 
     state = make_state(messages=[
         HumanMessage(content="hello"),
@@ -33,7 +33,7 @@ def test_verifier_valid_when_no_tool_messages():
 
 
 def test_verifier_valid_when_tool_results_are_clean():
-    from graph.verifier import verifier
+    from graph.shared.verifier import verifier
 
     state = make_state(messages=[
         HumanMessage(content="Check order 5678"),
@@ -50,7 +50,7 @@ def test_verifier_valid_when_tool_results_are_clean():
 # ── Cycle 2: Verifier valid=False + override when error not acknowledged ─────
 
 def test_verifier_invalid_with_override_when_error_not_acknowledged():
-    from graph.verifier import verifier
+    from graph.shared.verifier import verifier
 
     state = make_state(messages=[
         HumanMessage(content="Check order 0"),
@@ -68,7 +68,7 @@ def test_verifier_invalid_with_override_when_error_not_acknowledged():
 # ── Cycle 3: Verifier valid=False + no override when LLM acknowledges ────────
 
 def test_verifier_invalid_no_override_when_error_acknowledged():
-    from graph.verifier import verifier
+    from graph.shared.verifier import verifier
 
     state = make_state(messages=[
         HumanMessage(content="Check order 0"),
@@ -85,7 +85,7 @@ def test_verifier_invalid_no_override_when_error_acknowledged():
 # ── Cycle 4: build_system_prompt — no sections for empty context ─────────────
 
 def test_build_system_prompt_empty_context_has_no_sections():
-    from graph.planner import build_system_prompt
+    from graph.customer_service.planner import build_system_prompt
 
     prompt = build_system_prompt([])
 
@@ -96,7 +96,7 @@ def test_build_system_prompt_empty_context_has_no_sections():
 # ── Cycle 5: build_system_prompt — Customer History for memory entries ────────
 
 def test_build_system_prompt_includes_customer_history():
-    from graph.planner import build_system_prompt
+    from graph.customer_service.planner import build_system_prompt
 
     context = [
         {"type": "memory", "key": "late_delivery_1", "value": "Order 1001 was late"},
@@ -112,7 +112,7 @@ def test_build_system_prompt_includes_customer_history():
 # ── Cycle 6: build_system_prompt — Complaint History for complaint entries ────
 
 def test_build_system_prompt_includes_complaint_history():
-    from graph.planner import build_system_prompt
+    from graph.customer_service.planner import build_system_prompt
 
     context = [
         {"type": "complaint", "order_id": 2222, "issue": "Item damaged", "status": "open", "created_at": "2026-01-01"},
@@ -128,7 +128,7 @@ def test_build_system_prompt_includes_complaint_history():
 
 @pytest.mark.integration
 def test_graph_invoke_end_to_end_with_real_llm():
-    from graph.graph import graph, RECURSION_LIMIT
+    from graph.customer_service.graph import graph, RECURSION_LIMIT
     from langchain_core.messages import HumanMessage
 
     result = graph.invoke(
@@ -149,7 +149,7 @@ def test_graph_invoke_end_to_end_with_real_llm():
 # ── Cycle 8: tool_results audit trail is populated ───────────────────────────
 
 def test_verifier_populates_tool_results_on_clean_run():
-    from graph.verifier import verifier
+    from graph.shared.verifier import verifier
 
     state = make_state(messages=[
         HumanMessage(content="Check order 5678"),
@@ -164,7 +164,7 @@ def test_verifier_populates_tool_results_on_clean_run():
 
 
 def test_verifier_populates_empty_tool_results_when_no_tool_messages():
-    from graph.verifier import verifier
+    from graph.shared.verifier import verifier
 
     state = make_state(messages=[HumanMessage(content="hello"), AIMessage(content="Hi!")])
     result = verifier(state)
@@ -175,7 +175,7 @@ def test_verifier_populates_empty_tool_results_when_no_tool_messages():
 # ── Cycle 9: empty lookup detection ──────────────────────────────────────────
 
 def test_verifier_invalid_when_tool_returns_empty_list():
-    from graph.verifier import verifier
+    from graph.shared.verifier import verifier
 
     state = make_state(messages=[
         HumanMessage(content="What are my past orders?"),
@@ -191,7 +191,7 @@ def test_verifier_invalid_when_tool_returns_empty_list():
 
 
 def test_verifier_valid_when_non_empty_list_in_tool_result():
-    from graph.verifier import verifier
+    from graph.shared.verifier import verifier
 
     state = make_state(messages=[
         HumanMessage(content="What are my memories?"),
@@ -207,7 +207,7 @@ def test_verifier_valid_when_non_empty_list_in_tool_result():
 # ── Cycle 10: override replaces hallucinated assistant message ────────────────
 
 def test_verifier_appends_override_message_to_messages():
-    from graph.verifier import verifier
+    from graph.shared.verifier import verifier
 
     state = make_state(messages=[
         HumanMessage(content="Check order 0"),
@@ -225,7 +225,7 @@ def test_verifier_appends_override_message_to_messages():
 
 
 def test_verifier_does_not_append_messages_when_llm_acknowledged():
-    from graph.verifier import verifier
+    from graph.shared.verifier import verifier
 
     state = make_state(messages=[
         HumanMessage(content="Check order 0"),
@@ -260,7 +260,7 @@ def test_graph_invoke_failure_case_sets_override(monkeypatch):
         hallucinated_ai,
     ])
 
-    from graph.verifier import verifier
+    from graph.shared.verifier import verifier
     result = verifier(state)
 
     assert result["verification"]["valid"] is False

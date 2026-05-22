@@ -1,5 +1,5 @@
 from db.connection import get_connection
-from graph.state import AgentState
+from graph.shared.state import AgentState
 
 
 def memory_loader(state: AgentState) -> dict:

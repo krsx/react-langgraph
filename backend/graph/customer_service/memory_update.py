@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 from langchain_core.messages import HumanMessage, ToolMessage
 
 from db.connection import get_connection
-from graph.state import AgentState
+from graph.shared.state import AgentState
 
 
 def memory_update(state: AgentState) -> dict:

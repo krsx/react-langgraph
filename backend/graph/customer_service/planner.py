@@ -1,8 +1,8 @@
 from langchain_core.messages import SystemMessage
 from langchain_core.runnables import RunnableConfig
 
-from graph.state import AgentState
-from graph.tools import order_lookup, customer_profile, refund, complaint_logger, memory_tool
+from graph.shared.state import AgentState
+from graph.customer_service.tools import order_lookup, customer_profile, refund, complaint_logger, memory_tool
 from llm_factory import create_llm
 
 _TOOLS = [order_lookup, customer_profile, refund, complaint_logger, memory_tool]

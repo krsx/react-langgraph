@@ -454,7 +454,7 @@ def test_graph_error_yields_error_sse_event():
 
 
 def test_chat_stream_real_async_graph_path_avoids_sync_sqlite_error(monkeypatch):
-    graph_module = importlib.import_module("graph.graph")
+    graph_module = importlib.import_module("graph.customer_service.graph")
 
     class _Conn:
         def cursor(self, *args, **kwargs):

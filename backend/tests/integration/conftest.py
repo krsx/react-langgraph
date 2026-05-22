@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 from langgraph.checkpoint.sqlite import SqliteSaver
 
 from db.connection import get_connection
-from graph.graph import builder, RECURSION_LIMIT
+from graph.customer_service.graph import builder, RECURSION_LIMIT
 
 load_dotenv(pathlib.Path(__file__).parent.parent.parent.parent / ".env")
 

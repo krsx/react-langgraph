@@ -18,7 +18,7 @@ def make_state(customer_id, messages=None, tool_results=None):
 
 @pytest.mark.integration
 def test_memory_loader_returns_memory_entries_for_customer():
-    from graph.memory_loader import memory_loader
+    from graph.customer_service.memory_loader import memory_loader
 
     result = memory_loader(make_state(1))
 
@@ -32,7 +32,7 @@ def test_memory_loader_returns_memory_entries_for_customer():
 
 @pytest.mark.integration
 def test_memory_loader_returns_complaint_entries_for_customer():
-    from graph.memory_loader import memory_loader
+    from graph.customer_service.memory_loader import memory_loader
 
     result = memory_loader(make_state(1))
 
@@ -46,7 +46,7 @@ def test_memory_loader_returns_complaint_entries_for_customer():
 @pytest.mark.integration
 def test_memory_loader_returns_empty_list_for_customer_with_no_data():
     from db.connection import get_connection
-    from graph.memory_loader import memory_loader
+    from graph.customer_service.memory_loader import memory_loader
 
     customer_id = 999999
     conn = get_connection()
@@ -74,7 +74,7 @@ def test_memory_loader_returns_empty_list_for_customer_with_no_data():
 
 @pytest.mark.integration
 def test_memory_update_writes_interaction_summary():
-    from graph.memory_update import memory_update
+    from graph.customer_service.memory_update import memory_update
     from db.connection import get_connection
 
     state = make_state(
@@ -110,7 +110,7 @@ def test_memory_update_writes_interaction_summary():
 
 @pytest.mark.integration
 def test_memory_update_upserts_on_repeat_call():
-    from graph.memory_update import memory_update
+    from graph.customer_service.memory_update import memory_update
     from db.connection import get_connection
 
     state = make_state(1, messages=[HumanMessage(content="Check order 1001")])
@@ -134,7 +134,7 @@ def test_memory_update_upserts_on_repeat_call():
 
 @pytest.mark.integration
 def test_memory_update_skips_write_when_no_customer_id():
-    from graph.memory_update import memory_update
+    from graph.customer_service.memory_update import memory_update
 
     state = make_state(None, messages=[HumanMessage(content="hello")])
     result = memory_update(state)

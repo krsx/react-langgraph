@@ -14,7 +14,7 @@ def clean_imports():
 # ── Cycle 1: AgentState ──────────────────────────────────────────────────────
 
 def test_agent_state_has_all_required_fields():
-    from graph.state import AgentState
+    from graph.shared.state import AgentState
     import typing
 
     hints = typing.get_type_hints(AgentState)
@@ -28,14 +28,14 @@ def test_agent_state_has_all_required_fields():
 # ── Cycle 2: Graph compiles ──────────────────────────────────────────────────
 
 def test_graph_is_importable():
-    from graph.graph import graph
+    from graph.customer_service.graph import graph
     assert graph is not None
 
 
 # ── Cycle 3: Graph is invocable end-to-end ───────────────────────────────────
 
 def test_graph_invoke_returns_agent_state_shaped_dict():
-    from graph.graph import graph
+    from graph.customer_service.graph import graph
     from langchain_core.messages import HumanMessage
 
     result = graph.invoke(
@@ -55,7 +55,7 @@ def test_compile_graph_supports_async_streaming_with_async_sqlite_saver(monkeypa
     from langchain_core.messages import AIMessage, HumanMessage
     from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
 
-    graph_module = importlib.import_module("graph.graph")
+    graph_module = importlib.import_module("graph.customer_service.graph")
 
     monkeypatch.setattr(graph_module, "memory_loader", lambda state: {"memory_context": []})
     monkeypatch.setattr(
@@ -95,14 +95,14 @@ def test_compile_graph_supports_async_streaming_with_async_sqlite_saver(monkeypa
 # ── Cycle 4: tools.py exposes all 5 tool class stubs ────────────────────────
 
 def test_tools_module_exposes_all_five_tools():
-    from graph import tools
+    from graph.customer_service import tools
 
     for name in ("order_lookup", "customer_profile", "refund", "complaint_logger", "memory_tool"):
         assert hasattr(tools, name), f"tools module must expose '{name}'"
 
 
 def test_all_tools_are_langchain_tools():
-    from graph.tools import order_lookup, customer_profile, refund, complaint_logger, memory_tool
+    from graph.customer_service.tools import order_lookup, customer_profile, refund, complaint_logger, memory_tool
     from langchain_core.tools import BaseTool
 
     for t in (order_lookup, customer_profile, refund, complaint_logger, memory_tool):

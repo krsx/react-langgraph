@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from graph.graph import close_async_graph
+from graph.customer_service.graph import close_async_graph
 from routes.chat import router as chat_router
 from routes.data import router as data_router
 from routes.memory import router as memory_router
