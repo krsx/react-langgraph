@@ -2,7 +2,7 @@
 
 Source of truth: `backend/main.py`, `backend/routes/*`, `backend/llm_factory.py`, `backend/db/seed.sql`, and backend route tests.
 
-This document reflects the implementation after issue `#18` and issue `#19`.
+This document reflects the implementation after issue `#18`, issue `#19`, and issue `#27`.
 
 No API versioning is implemented in the path structure.
 
@@ -143,6 +143,7 @@ Request body:
 {
   "message": "Where is my order 12345?",
   "customer_id": 1,
+  "agent_type": "customer_service",
   "thread_id": "optional-existing-thread-id",
   "provider": "optional: openrouter|ollama",
   "model": "accepted-by-schema-but-currently-ignored"
@@ -151,8 +152,8 @@ Request body:
 
 Request rules:
 
-- Required: `message` (string), `customer_id` (int)
-- Optional: `thread_id`, `provider`, `model`
+- Required: `message` (string)
+- Optional: `customer_id` (int | null), `agent_type` (string, default `"customer_service"`), `thread_id`, `provider`, `model`
 - If `thread_id` is omitted, backend generates a UUID string
 - If `provider` is omitted, backend defaults to `openrouter`
 - `model` is currently ignored by the route implementation
@@ -160,6 +161,13 @@ Request rules:
   - `openrouter` -> `DEFAULT_MODEL`
   - `ollama` -> `OLLAMA_DEFAULT_MODEL`
 - `provider` is not validated at request-schema level; an unsupported value can fail later and surface as SSE `error`
+
+`agent_type` validation (enforced by Pydantic model validator, returns HTTP `422` on failure):
+
+- Accepted values: `"customer_service"`, `"refund_email"`, `"calendar"`
+- Unknown `agent_type` -> `422` with message `"Unknown agent_type '<value>'. Must be one of: [...]"`
+- `agent_type == "customer_service"` and `customer_id` is absent/null -> `422` with message `"customer_id is required for agent_type 'customer_service'"`
+- `agent_type` is a workspace type (`"refund_email"` or `"calendar"`) and `customer_id` is present -> `422` with message `"customer_id must not be provided for workspace agent_type '<value>'"`
 
 Response:
 
@@ -303,7 +311,7 @@ Streaming behavior notes:
 Persistence side effects:
 
 - At stream start:
-  - upsert into `sessions(thread_id, customer_id)`
+  - upsert into `sessions(thread_id, customer_id, agent_type)`
   - insert human message into `session_messages` with role `human`
 - At stream end:
   - concatenated AI tokens are inserted into `session_messages` with role `ai` only if non-empty
@@ -319,6 +327,7 @@ Success `200`:
   {
     "thread_id":"abc-123",
     "customer_id":1,
+    "agent_type":"customer_service",
     "created_at":"2026-05-01 10:00:00",
     "first_message":"Where is my order?"
   }
@@ -329,33 +338,43 @@ Notes:
 
 - Ordered newest first by `sessions.created_at DESC`
 - `first_message` is the earliest `human` message for that thread
+- `customer_id` is nullable (null for workspace agent sessions)
 
 ### `GET /sessions/{session_id}`
 
-Returns ordered message history for one session.
+Returns session metadata and ordered message history for one session.
 
 Success `200`:
 
 ```json
-[
-  {
-    "message_id":1,
-    "role":"human",
-    "content":"Hello",
-    "created_at":"2026-05-01 10:00:00"
+{
+  "session": {
+    "thread_id": "abc-123",
+    "customer_id": 1,
+    "agent_type": "customer_service",
+    "created_at": "2026-05-01 10:00:00"
   },
-  {
-    "message_id":2,
-    "role":"ai",
-    "content":"Hi there",
-    "created_at":"2026-05-01 10:00:01"
-  }
-]
+  "messages": [
+    {
+      "message_id":1,
+      "role":"human",
+      "content":"Hello",
+      "created_at":"2026-05-01 10:00:00"
+    },
+    {
+      "message_id":2,
+      "role":"ai",
+      "content":"Hi there",
+      "created_at":"2026-05-01 10:00:01"
+    }
+  ]
+}
 ```
 
 Notes:
 
-- Ordered oldest first by `session_messages.created_at ASC`
+- `messages` ordered oldest first by `session_messages.created_at ASC`
+- `session.customer_id` is nullable (null for workspace agent sessions)
 
 Not found `404`:
 
@@ -741,6 +760,8 @@ Not found `404`:
 6. Handle `400` on empty update payloads for `PUT /customers/{id}`, `PUT /orders/{id}`, and `PUT /complaints/{id}`.
 7. Handle `404` for deleted or missing session, memory, customer, order, and complaint resources.
 8. Do not rely on request-side `model` selection yet; the backend ignores it in current implementation.
+9. When calling `POST /chat/stream`, send `agent_type` to control which agent handles the request. Always send `customer_id` for `"customer_service"` requests; never send it for workspace agents (`"refund_email"`, `"calendar"`). Invalid combinations return `422`.
+10. `GET /sessions/{session_id}` now returns `{"session": {...}, "messages": [...]}` — read messages from `.messages`, not the root array.
 
 ## 5) Current Gaps / Non-Goals
 
