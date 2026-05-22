@@ -1,7 +1,14 @@
 """Tests that chat /stream resolves provider/model from server config (issue #11)."""
 import json
 import pytest
-from unittest.mock import patch, AsyncMock
+from unittest.mock import patch, AsyncMock, MagicMock
+
+
+@pytest.fixture(autouse=True)
+def stub_db(monkeypatch):
+    """Prevent _persist_session_start from touching MySQL in unit tests."""
+    mock_conn = MagicMock()
+    monkeypatch.setattr("routes.chat.get_connection", lambda: mock_conn)
 
 
 def parse_sse(text: str) -> list[dict]:

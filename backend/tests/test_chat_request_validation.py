@@ -1,7 +1,14 @@
 """Tests for ChatRequest agent_type field and Pydantic validator (issue #27)."""
 import pytest
 from fastapi.testclient import TestClient
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
+
+
+@pytest.fixture(autouse=True)
+def stub_db(monkeypatch):
+    """Prevent _persist_session_start from touching MySQL in unit tests."""
+    mock_conn = MagicMock()
+    monkeypatch.setattr("routes.chat.get_connection", lambda: mock_conn)
 
 
 async def _empty_stream(*args, **kwargs):

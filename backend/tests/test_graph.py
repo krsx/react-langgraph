@@ -34,6 +34,7 @@ def test_graph_is_importable():
 
 # ── Cycle 3: Graph is invocable end-to-end ───────────────────────────────────
 
+@pytest.mark.integration
 def test_graph_invoke_returns_agent_state_shaped_dict():
     from graph.customer_service.graph import graph
     from langchain_core.messages import HumanMessage

@@ -8,6 +8,13 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from fastapi.testclient import TestClient
 
 
+@pytest.fixture(autouse=True)
+def stub_db(monkeypatch):
+    """Prevent _persist_session_start from touching MySQL in unit tests."""
+    mock_conn = MagicMock()
+    monkeypatch.setattr("routes.chat.get_connection", lambda: mock_conn)
+
+
 # ── Helpers ──────────────────────────────────────────────────────────────────
 
 def parse_sse(text: str) -> list[dict]:

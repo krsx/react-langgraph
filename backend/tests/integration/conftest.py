@@ -1,3 +1,4 @@
+import json
 import sqlite3
 import uuid
 import pathlib
@@ -5,6 +6,7 @@ import pathlib
 import openai as _openai
 import pytest
 from dotenv import load_dotenv
+from langchain_core.tools import tool
 from langgraph.checkpoint.sqlite import SqliteSaver
 
 from db.connection import get_connection
@@ -118,3 +120,102 @@ def memory_snapshot():
         conn.commit()
     finally:
         conn.close()
+
+
+# ── Workspace agent mock tools ────────────────────────────────────────────────
+# These are realistic tool doubles injected via compile_graph(tools, checkpointer).
+# They return JSON shaped like real Gmail / Google Calendar API responses so the
+# LLM reasons against plausible data without requiring live service credentials.
+
+@tool
+def search_gmail(query: str) -> str:
+    """Search Gmail for emails matching a query."""
+    return json.dumps([
+        {"id": "msg1", "subject": "Refund for order #1234", "snippet": "I want a full refund for my broken item"},
+        {"id": "msg2", "subject": "Return request for order #5678", "snippet": "I need to return this — it does not fit"},
+    ])
+
+
+@tool
+def get_message(message_id: str) -> str:
+    """Get the full content of a Gmail message by ID."""
+    bodies = {
+        "msg1": "Hi, I received order #1234 and the item arrived broken. Please refund me immediately.",
+        "msg2": "Hello, I would like to return the item from order #5678. It does not fit as described.",
+    }
+    return json.dumps({
+        "id": message_id,
+        "subject": "Customer request",
+        "from": "customer@example.com",
+        "body": bodies.get(message_id, "Customer email body."),
+    })
+
+
+@tool
+def send_reply(message_id: str, body: str) -> str:
+    """Send a reply to a Gmail message."""
+    return json.dumps({"status": "sent", "message_id": message_id})
+
+
+@tool("search_gmail")
+def _search_gmail_permission_denied(query: str) -> str:
+    """Search Gmail for emails matching a query."""
+    return json.dumps({"error": "permission denied: insufficient Gmail scopes to read messages"})
+
+
+@tool
+def create_event(summary: str, start: str, end: str) -> str:
+    """Create a new Google Calendar event."""
+    return json.dumps({"id": "evt_abc123", "summary": summary, "start": start, "end": end, "status": "confirmed"})
+
+
+@tool("create_event")
+def _create_event_rate_limited(summary: str, start: str, end: str) -> str:
+    """Create a new Google Calendar event."""
+    return json.dumps({"error": "rate limit exceeded: Calendar API write quota exhausted"})
+
+
+MOCK_GMAIL_TOOLS = [search_gmail, get_message, send_reply]
+MOCK_GMAIL_ERROR_TOOLS = [_search_gmail_permission_denied]
+MOCK_CALENDAR_MCP_TOOLS = [create_event]
+MOCK_CALENDAR_ERROR_MCP_TOOLS = [_create_event_rate_limited]
+
+
+# ── Workspace fixtures ────────────────────────────────────────────────────────
+
+@pytest.fixture
+def ws_thread():
+    """Fresh UUID thread ID for workspace agent tests (no customer_id)."""
+    return f"ws-integ-{uuid.uuid4()}"
+
+
+@pytest.fixture
+def refund_email_graph():
+    """Refund Email graph compiled with mock Gmail tools and an in-memory checkpointer."""
+    from graph.refund_email.graph import compile_graph
+    conn = sqlite3.connect(":memory:", check_same_thread=False)
+    return compile_graph(MOCK_GMAIL_TOOLS, SqliteSaver(conn))
+
+
+@pytest.fixture
+def refund_email_error_graph():
+    """Refund Email graph where search_gmail always returns permission-denied."""
+    from graph.refund_email.graph import compile_graph
+    conn = sqlite3.connect(":memory:", check_same_thread=False)
+    return compile_graph(MOCK_GMAIL_ERROR_TOOLS, SqliteSaver(conn))
+
+
+@pytest.fixture
+def calendar_graph():
+    """Calendar graph compiled with real CLI tools + mock create_event MCP tool."""
+    from graph.calendar.graph import compile_graph, CLI_TOOLS
+    conn = sqlite3.connect(":memory:", check_same_thread=False)
+    return compile_graph(CLI_TOOLS + MOCK_CALENDAR_MCP_TOOLS, SqliteSaver(conn))
+
+
+@pytest.fixture
+def calendar_error_graph():
+    """Calendar graph where create_event always returns a rate-limit error."""
+    from graph.calendar.graph import compile_graph, CLI_TOOLS
+    conn = sqlite3.connect(":memory:", check_same_thread=False)
+    return compile_graph(CLI_TOOLS + MOCK_CALENDAR_ERROR_MCP_TOOLS, SqliteSaver(conn))

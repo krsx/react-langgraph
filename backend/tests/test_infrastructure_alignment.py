@@ -15,7 +15,10 @@ def test_dockerfile_entrypoint_module_exists():
 
 
 def test_required_dependencies_are_declared():
-    import tomllib
+    try:
+        import tomllib
+    except ImportError:
+        import tomli as tomllib  # Python 3.10 backport
 
     pyproject = tomllib.loads((BACKEND_DIR / "pyproject.toml").read_text())
     declared = pyproject["project"]["dependencies"]
