@@ -21,6 +21,7 @@ export function ChatPage() {
     view,
     isStreaming,
     sendMessage,
+    activeAgentType,
   } = useChatContext();
 
   const [composer, setComposer] = useState("");
@@ -31,7 +32,7 @@ export function ChatPage() {
   const composerDisabled =
     isHistoryMode ||
     isStreaming ||
-    activeCustomerId === null ||
+    (activeAgentType === "customer_service" && activeCustomerId === null) ||
     selectedProvider === null ||
     selectedModel === null;
 
@@ -92,10 +93,12 @@ export function ChatPage() {
                   aria-label="Message"
                   placeholder={
                     isHistoryMode
-                      ? 'Click "New Chat" to start a new conversation.'
-                      : !activeCustomerId || !selectedProvider || !selectedModel
-                        ? "Select a customer, provider, and model to begin."
-                        : "Ask the agent a question..."
+                      ? 'Click an Agent Type to start a new conversation.'
+                      : selectedProvider === null || selectedModel === null
+                        ? "Select a provider and model to begin."
+                        : activeAgentType === "customer_service" && !activeCustomerId
+                          ? "Select a customer to begin."
+                          : "Ask the agent a question..."
                   }
                   value={composer}
                   disabled={composerDisabled}

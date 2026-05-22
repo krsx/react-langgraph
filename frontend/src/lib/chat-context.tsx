@@ -9,11 +9,12 @@ import {
 import { useQueryClient } from "@tanstack/react-query";
 import { postChatStream } from "./api";
 import type { ConversationTurn, ConversationView, WritableConversation } from "./conversation";
-import type { ChatStreamEvent, SessionMessage } from "./types";
+import type { AgentType, ChatStreamEvent, SessionMessage } from "./types";
 
 // ── State ────────────────────────────────────────────────────────────────────
 
 type ChatState = {
+  activeAgentType: AgentType;
   activeCustomerId: number | null;
   selectedProvider: string | null;
   selectedModel: string | null;
@@ -22,6 +23,7 @@ type ChatState = {
 };
 
 type ChatAction =
+  | { type: "agent_type_selected"; agentType: AgentType }
   | { type: "customer_selected"; customerId: number }
   | { type: "provider_selected"; provider: string; models: string[]; defaultModel?: string | null }
   | { type: "model_selected"; model: string }
@@ -46,6 +48,16 @@ function pickModel(models: string[], defaultModel?: string | null, previous?: st
 
 function chatReducer(state: ChatState, action: ChatAction): ChatState {
   switch (action.type) {
+    case "agent_type_selected":
+      return {
+        ...state,
+        ...freshViewState(),
+        activeAgentType: action.agentType,
+        ...(action.agentType !== "customer_service"
+          ? { selectedProvider: null, selectedModel: null }
+          : {}),
+      };
+
     case "customer_selected":
       return { ...state, ...freshViewState(), activeCustomerId: action.customerId };
 
@@ -120,6 +132,7 @@ function chatReducer(state: ChatState, action: ChatAction): ChatState {
 
 function createInitialChatState(): ChatState {
   return {
+    activeAgentType: "customer_service",
     activeCustomerId: null,
     selectedProvider: null,
     selectedModel: null,
@@ -131,6 +144,7 @@ function createInitialChatState(): ChatState {
 // ── Context ───────────────────────────────────────────────────────────────────
 
 type ChatContextValue = ChatState & {
+  selectAgentType: (agentType: AgentType) => void;
   selectCustomer: (customerId: number) => void;
   selectProvider: (provider: string, models: string[], defaultModel?: string | null) => void;
   selectModel: (model: string) => void;
@@ -148,6 +162,10 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   // Keep a ref to state so sendMessage doesn't stale-capture view/threadId
   const stateRef = useRef(state);
   stateRef.current = state;
+
+  const selectAgentType = useCallback((agentType: AgentType) => {
+    dispatch({ type: "agent_type_selected", agentType });
+  }, []);
 
   const selectCustomer = useCallback((customerId: number) => {
     dispatch({ type: "customer_selected", customerId });
@@ -174,8 +192,9 @@ export function ChatProvider({ children }: { children: ReactNode }) {
 
   const sendMessage = useCallback(
     async (message: string) => {
-      const { activeCustomerId, selectedProvider, selectedModel, view } = stateRef.current;
-      if (!activeCustomerId || !selectedProvider || !selectedModel) return;
+      const { activeAgentType, activeCustomerId, selectedProvider, selectedModel, view } = stateRef.current;
+      if (!selectedProvider || !selectedModel) return;
+      if (activeAgentType === "customer_service" && !activeCustomerId) return;
 
       const turnId = crypto.randomUUID();
       dispatch({ type: "turn_started", turnId, message });
@@ -184,7 +203,14 @@ export function ChatProvider({ children }: { children: ReactNode }) {
 
       try {
         await postChatStream(
-          { message, customer_id: activeCustomerId, thread_id: threadId, provider: selectedProvider, model: selectedModel },
+          {
+            message,
+            agent_type: activeAgentType,
+            ...(activeAgentType === "customer_service" && activeCustomerId ? { customer_id: activeCustomerId } : {}),
+            thread_id: threadId,
+            provider: selectedProvider,
+            model: selectedModel,
+          },
           (event) => dispatch({ type: "stream_event", turnId, event }),
         );
       } catch (err) {
@@ -206,6 +232,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
 
   const value: ChatContextValue = {
     ...state,
+    selectAgentType,
     selectCustomer,
     selectProvider,
     selectModel,

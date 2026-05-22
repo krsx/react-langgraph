@@ -10,7 +10,7 @@ vi.mock("react-resizable-panels", () => ({
   usePanelRef: () => ({ current: null }),
 }));
 
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createMemoryRouter, RouterProvider } from "react-router-dom";
@@ -28,8 +28,9 @@ const PROVIDERS = {
 };
 
 const SESSIONS = [
-  { thread_id: "t1", customer_id: 1, created_at: "2026-01-01T00:00:00Z", first_message: "Hello there" },
-  { thread_id: "t2", customer_id: 2, created_at: "2026-01-02T00:00:00Z", first_message: "Hi from Bob" },
+  { thread_id: "t1", customer_id: 1, created_at: "2026-01-01T00:00:00Z", first_message: "Hello there", agent_type: "customer_service" as const },
+  { thread_id: "t2", customer_id: 2, created_at: "2026-01-02T00:00:00Z", first_message: "Hi from Bob", agent_type: "customer_service" as const },
+  { thread_id: "t3", customer_id: null, created_at: "2026-01-03T00:00:00Z", first_message: "Refund request email", agent_type: "refund_email" as const },
 ];
 
 const SESSION_MESSAGES = {
@@ -113,10 +114,13 @@ describe("ChatPage", () => {
     expect(await screen.findByText("Hello world")).toBeInTheDocument();
   });
 
-  it("shows sessions filtered to the active customer in the sidebar", async () => {
+  it("shows sessions grouped by agent type in the sidebar", async () => {
     renderChat();
+    // All customer_service sessions visible under their group
     expect(await screen.findByText("Hello there")).toBeInTheDocument();
-    expect(screen.queryByText("Hi from Bob")).not.toBeInTheDocument();
+    expect(screen.getByText("Hi from Bob")).toBeInTheDocument();
+    // Refund email session visible under its group
+    expect(screen.getByText("Refund request email")).toBeInTheDocument();
   });
 
   it("loads read-only transcript when a sidebar session is clicked", async () => {
@@ -128,13 +132,14 @@ describe("ChatPage", () => {
     await waitFor(() => expect(screen.getByRole("textbox", { name: /message/i })).toBeDisabled());
   });
 
-  it("New Chat nav item resets to a writable empty conversation", async () => {
+  it("clicking an Agent Type button resets to a writable empty conversation", async () => {
     renderChat();
 
     await userEvent.click(await screen.findByText("Hello there"));
     await screen.findByText("Hi! How can I help you today?");
 
-    await userEvent.click(screen.getByRole("link", { name: /new chat/i }));
+    const nav = screen.getByTestId("agent-type-nav");
+    await userEvent.click(within(nav).getByRole("button", { name: /customer service/i }));
 
     expect(await screen.findByText(/start a fresh conversation/i)).toBeInTheDocument();
     await waitFor(() => expect(screen.getByRole("textbox", { name: /message/i })).not.toBeDisabled());
@@ -228,5 +233,138 @@ describe("ChatPage", () => {
 
     expect(screen.getByTestId("agent-process-header")).toHaveClass("sticky");
     expect(screen.getByTestId("agent-process-scroll-region")).toHaveClass("overflow-y-auto");
+  });
+
+  it("sidebar shows Agent Type nav items for Customer Service, Refund Email, and Calendar", async () => {
+    renderChat();
+    const nav = await screen.findByTestId("agent-type-nav");
+
+    expect(within(nav).getByRole("button", { name: /customer service/i })).toBeInTheDocument();
+    expect(within(nav).getByRole("button", { name: /refund email/i })).toBeInTheDocument();
+    expect(within(nav).getByRole("button", { name: /calendar/i })).toBeInTheDocument();
+  });
+
+  it("Customer selector is shown when Customer Service agent is active", async () => {
+    renderChat();
+    expect(await screen.findByRole("combobox", { name: /customer/i })).toBeInTheDocument();
+  });
+
+  it("Customer selector is hidden when Refund Email agent is selected", async () => {
+    renderChat();
+    const nav = await screen.findByTestId("agent-type-nav");
+
+    await userEvent.click(within(nav).getByRole("button", { name: /refund email/i }));
+
+    await waitFor(() => expect(screen.queryByRole("combobox", { name: /customer/i })).not.toBeInTheDocument());
+  });
+
+  it("Customer selector is hidden when Calendar agent is selected", async () => {
+    renderChat();
+    const nav = await screen.findByTestId("agent-type-nav");
+
+    await userEvent.click(within(nav).getByRole("button", { name: /calendar/i }));
+
+    await waitFor(() => expect(screen.queryByRole("combobox", { name: /customer/i })).not.toBeInTheDocument());
+  });
+
+  it("switching to a workspace agent resets the conversation to empty", async () => {
+    const streamEvents: ChatStreamEvent[] = [
+      { type: "response_end", thread_id: "t-ws", response: "A response" },
+    ];
+
+    renderChat({ customers: CUSTOMERS, providers: PROVIDERS, sessions: [], streamRuns: [{ events: streamEvents }] });
+
+    await waitForReady();
+    await userEvent.type(screen.getByRole("textbox", { name: /message/i }), "Hello");
+    await userEvent.click(screen.getByRole("button", { name: /send/i }));
+    expect(await screen.findByText("A response")).toBeInTheDocument();
+
+    const nav = screen.getByTestId("agent-type-nav");
+    await userEvent.click(within(nav).getByRole("button", { name: /refund email/i }));
+
+    expect(await screen.findByText(/start a fresh conversation/i)).toBeInTheDocument();
+    expect(screen.queryByText("A response")).not.toBeInTheDocument();
+  });
+
+  it("sendMessage includes agent_type in the chat request body", async () => {
+    const streamEvents: ChatStreamEvent[] = [
+      { type: "response_end", thread_id: "t-at", response: "Done" },
+    ];
+
+    const { fetchMock } = createMockFetch({
+      customers: CUSTOMERS,
+      providers: PROVIDERS,
+      sessions: [],
+      streamRuns: [{ events: streamEvents }],
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const router = createMemoryRouter(routes, { initialEntries: ["/chat"] });
+    const { unmount } = render(
+      <QueryClientProvider client={queryClient}>
+        <RouterProvider router={router} />
+      </QueryClientProvider>,
+    );
+
+    await waitForReady();
+    await userEvent.type(screen.getByRole("textbox", { name: /message/i }), "Hello");
+    await userEvent.click(screen.getByRole("button", { name: /send/i }));
+    await screen.findByText("Done");
+
+    const chatCall = fetchMock.mock.calls.find(([url]) => {
+      const u = typeof url === "string" ? url : url instanceof URL ? url.toString() : (url as Request).url;
+      return u.includes("/chat/stream");
+    });
+    expect(chatCall).toBeDefined();
+    const body = JSON.parse(String(chatCall![1]?.body)) as Record<string, unknown>;
+    expect(body).toHaveProperty("agent_type", "customer_service");
+    expect(body).toHaveProperty("customer_id");
+
+    unmount();
+  });
+
+  it("sendMessage omits customer_id for workspace agent requests", async () => {
+    const streamEvents: ChatStreamEvent[] = [
+      { type: "response_end", thread_id: "t-ws2", response: "Done" },
+    ];
+
+    const { fetchMock } = createMockFetch({
+      customers: CUSTOMERS,
+      providers: PROVIDERS,
+      sessions: [],
+      streamRuns: [{ events: streamEvents }],
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const router = createMemoryRouter(routes, { initialEntries: ["/chat"] });
+    const { unmount } = render(
+      <QueryClientProvider client={queryClient}>
+        <RouterProvider router={router} />
+      </QueryClientProvider>,
+    );
+
+    // Switch to Refund Email agent
+    const nav = await screen.findByTestId("agent-type-nav");
+    await userEvent.click(within(nav).getByRole("button", { name: /refund email/i }));
+
+    // Wait for provider to be available (textarea enabled without customer)
+    await waitFor(() => {
+      expect(screen.getByRole("textbox", { name: /message/i })).not.toBeDisabled();
+    });
+
+    await userEvent.type(screen.getByRole("textbox", { name: /message/i }), "Draft email");
+    await userEvent.click(screen.getByRole("button", { name: /send/i }));
+    await screen.findByText("Done");
+
+    const chatCall = fetchMock.mock.calls.find(([url]) => {
+      const u = typeof url === "string" ? url : url instanceof URL ? url.toString() : (url as Request).url;
+      return u.includes("/chat/stream");
+    });
+    expect(chatCall).toBeDefined();
+    const body = JSON.parse(String(chatCall![1]?.body)) as Record<string, unknown>;
+    expect(body).toHaveProperty("agent_type", "refund_email");
+    expect(body).not.toHaveProperty("customer_id");
+
+    unmount();
   });
 });

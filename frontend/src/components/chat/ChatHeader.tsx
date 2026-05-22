@@ -18,19 +18,19 @@ export function ChatHeader() {
     selectCustomer,
     selectProvider,
     selectModel,
+    activeAgentType,
   } = useChatContext();
 
   const { data: customers = [] } = useQuery({ queryKey: ["customers"], queryFn: getCustomers });
   const { data: providers = {} } = useQuery({ queryKey: ["providers"], queryFn: getProviders });
 
-  // Auto-select first customer when data arrives
   useEffect(() => {
+    if (activeAgentType !== "customer_service") return;
     if (customers.length > 0 && activeCustomerId === null) {
       selectCustomer(customers[0].customer_id);
     }
-  }, [customers, activeCustomerId, selectCustomer]);
+  }, [customers, activeCustomerId, selectCustomer, activeAgentType]);
 
-  // Auto-select first available provider when data arrives
   useEffect(() => {
     if (Object.keys(providers).length === 0) return;
     if (selectedProvider !== null) return;
@@ -43,6 +43,22 @@ export function ChatHeader() {
     }
   }, [providers, selectedProvider, selectProvider]);
 
+  useEffect(() => {
+    if (activeAgentType === "customer_service") return;
+    if (selectedProvider !== null) return;
+    if (Object.keys(providers).length === 0) return;
+    const openrouter = providers["openrouter"];
+    if (openrouter?.available && openrouter.models.length > 0) {
+      selectProvider("openrouter", openrouter.models, openrouter.default_model);
+    } else {
+      const available = Object.entries(providers).find(([, p]) => p.available && p.models.length > 0);
+      if (available) {
+        const [name, p] = available;
+        selectProvider(name, p.models, p.default_model);
+      }
+    }
+  }, [activeAgentType, providers, selectedProvider, selectProvider]);
+
   const activeProviderModels = selectedProvider ? (providers[selectedProvider]?.models ?? []) : [];
 
   return (
@@ -50,25 +66,26 @@ export function ChatHeader() {
       data-testid="chat-header"
       className="sticky top-0 z-20 flex shrink-0 items-center gap-2 border-b border-border bg-background/95 px-4 py-2 backdrop-blur supports-[backdrop-filter]:bg-background/80"
     >
-      {/* Customer */}
-      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-        <span className="text-xs font-medium uppercase tracking-widest text-muted-foreground">Customer</span>
-        <Select
-          value={activeCustomerId !== null ? String(activeCustomerId) : ""}
-          onValueChange={(v) => selectCustomer(Number(v))}
-        >
-          <SelectTrigger aria-label="Customer" className="h-8 min-w-[140px] max-w-[200px]">
-            <SelectValue placeholder="Select customer" />
-          </SelectTrigger>
-          <SelectContent>
-            {customers.map((c) => (
-              <SelectItem key={c.customer_id} value={String(c.customer_id)}>
-                {c.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
+      {activeAgentType === "customer_service" && (
+        <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+          <span className="text-xs font-medium uppercase tracking-widest text-muted-foreground">Customer</span>
+          <Select
+            value={activeCustomerId !== null ? String(activeCustomerId) : ""}
+            onValueChange={(v) => selectCustomer(Number(v))}
+          >
+            <SelectTrigger aria-label="Customer" className="h-8 min-w-[140px] max-w-[200px]">
+              <SelectValue placeholder="Select customer" />
+            </SelectTrigger>
+            <SelectContent>
+              {customers.map((c) => (
+                <SelectItem key={c.customer_id} value={String(c.customer_id)}>
+                  {c.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
 
       {/* Provider */}
       <div className="flex flex-col gap-0.5">

@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient } from "@tanstack/react-query";
 import { createMemoryRouter } from "react-router-dom";
@@ -29,21 +29,28 @@ function renderRouter(path = "/chat", config: RenderConfig = {}) {
 }
 
 describe("App layout – foundation", () => {
-  it("renders sidebar with New Chat nav link", async () => {
+  it("renders sidebar with Agent Type nav items", async () => {
     renderRouter("/chat");
-    expect(await screen.findByRole("link", { name: /^new chat$/i })).toBeInTheDocument();
+    const nav = await screen.findByTestId("agent-type-nav");
+    expect(within(nav).getByRole("button", { name: /customer service/i })).toBeInTheDocument();
+    expect(within(nav).getByRole("button", { name: /refund email/i })).toBeInTheDocument();
+    expect(within(nav).getByRole("button", { name: /calendar/i })).toBeInTheDocument();
   });
 
-  it("sidebar has all three nav links", async () => {
+  it("sidebar has agent type buttons and tool nav links", async () => {
     renderRouter("/chat");
-    expect(await screen.findByRole("link", { name: /^new chat$/i })).toBeInTheDocument();
+    const nav = await screen.findByTestId("agent-type-nav");
+    expect(within(nav).getByRole("button", { name: /customer service/i })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /data explorer/i })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /memory manager/i })).toBeInTheDocument();
   });
 
-  it("sidebar has Session History collapsible group", async () => {
+  it("sidebar has Customer Service session history collapsible group", async () => {
     renderRouter("/chat");
-    expect(await screen.findByText("Session History")).toBeInTheDocument();
+    await screen.findByTestId("agent-type-nav");
+    // Both agent type nav and session history groups show agent type names — verify groups exist
+    const allCustomerServiceEls = screen.getAllByText("Customer Service");
+    expect(allCustomerServiceEls.length).toBeGreaterThanOrEqual(2);
   });
 
   it("/chat route renders the chat interface with message composer", async () => {
@@ -85,42 +92,29 @@ describe("App layout – foundation", () => {
           customer_id: 1,
           created_at: "2026-05-01T00:00:00Z",
           first_message: sessionSummary,
+          agent_type: "customer_service" as const,
         },
       ],
     });
 
-    expect(await screen.findByText("Session History")).toBeInTheDocument();
     expect(await screen.findByText(sessionSummary)).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: /toggle sidebar/i }));
 
-    expect(screen.queryByText("Session History")).not.toBeInTheDocument();
     expect(screen.queryByText(sessionSummary)).not.toBeInTheDocument();
   });
 
-  it("renders New Chat nav item above Session History", async () => {
-    renderRouter("/chat", {
-      customers: [
-        {
-          customer_id: 1,
-          name: "Ada Lovelace",
-          email: "ada@example.com",
-          created_at: "2026-05-01T00:00:00Z",
-        },
-      ],
-      providers: {
-        openai: {
-          available: true,
-          models: ["gpt-4o-mini"],
-          default_model: "gpt-4o-mini",
-        },
-      },
-    });
+  it("renders Agent Type nav section above session history groups", async () => {
+    renderRouter("/chat");
 
-    const newChatButton = await screen.findByRole("link", { name: /new chat/i });
-    const sessionHistory = screen.getByText("Session History");
+    const nav = await screen.findByTestId("agent-type-nav");
+    const customerServiceBtn = within(nav).getByRole("button", { name: /customer service/i });
 
-    expect(newChatButton.compareDocumentPosition(sessionHistory) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    // Session history group labels appear below the nav section in the DOM
+    const allCustomerServiceElements = screen.getAllByText("Customer Service");
+    expect(allCustomerServiceElements.length).toBeGreaterThanOrEqual(2);
+    // The nav button precedes the session group label
+    expect(customerServiceBtn.compareDocumentPosition(allCustomerServiceElements[allCustomerServiceElements.length - 1]) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
   it("renders select triggers on a visible background surface", async () => {

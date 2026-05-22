@@ -1,5 +1,6 @@
 import { vi } from "vitest";
 import type {
+  AgentType,
   ChatRequest,
   ChatStreamEvent,
   Complaint,
@@ -10,6 +11,8 @@ import type {
   SessionMessage,
   SessionSummary,
 } from "../lib/types";
+
+export type { AgentType };
 
 type StreamRun = {
   events: ChatStreamEvent[];

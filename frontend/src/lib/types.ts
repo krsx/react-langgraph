@@ -1,3 +1,5 @@
+export type AgentType = "customer_service" | "refund_email" | "calendar";
+
 export type Customer = {
   customer_id: number;
   name: string;
@@ -39,9 +41,10 @@ export type ProviderCatalog = Record<string, ProviderState>;
 
 export type SessionSummary = {
   thread_id: string;
-  customer_id: number;
+  customer_id: number | null;
   created_at: string;
   first_message: string;
+  agent_type: AgentType;
 };
 
 export type SessionMessage = {
@@ -53,10 +56,11 @@ export type SessionMessage = {
 
 export type ChatRequest = {
   message: string;
-  customer_id: number;
+  customer_id?: number;
   thread_id?: string;
   provider?: string;
   model?: string;
+  agent_type: AgentType;
 };
 
 export type MemoryEntry = {
