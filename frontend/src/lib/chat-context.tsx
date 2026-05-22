@@ -53,9 +53,6 @@ function chatReducer(state: ChatState, action: ChatAction): ChatState {
         ...state,
         ...freshViewState(),
         activeAgentType: action.agentType,
-        ...(action.agentType !== "customer_service"
-          ? { selectedProvider: null, selectedModel: null }
-          : {}),
       };
 
     case "customer_selected":

@@ -161,7 +161,7 @@ function SessionHistorySection({
       {agentTypeItems.map((item) => {
         const agentSessions = sessionsByAgentType[item.agentType] ?? [];
         return (
-          <Collapsible key={item.agentType} defaultOpen className="group/collapsible">
+          <Collapsible key={item.agentType} className="group/collapsible">
             <SidebarGroup>
               <SidebarGroupLabel asChild>
                 <CollapsibleTrigger className="flex w-full items-center">

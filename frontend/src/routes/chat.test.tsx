@@ -38,6 +38,10 @@ const SESSION_MESSAGES = {
     { message_id: 1, role: "human" as const, content: "Hello there", created_at: "2026-01-01T00:00:00Z" },
     { message_id: 2, role: "ai" as const, content: "Hi! How can I help you today?", created_at: "2026-01-01T00:01:00Z" },
   ],
+  t3: [
+    { message_id: 3, role: "human" as const, content: "Refund request email", created_at: "2026-01-03T00:00:00Z" },
+    { message_id: 4, role: "ai" as const, content: "I can help draft your refund email.", created_at: "2026-01-03T00:01:00Z" },
+  ],
 };
 
 type MockConfig = Parameters<typeof createMockFetch>[0];
@@ -116,15 +120,25 @@ describe("ChatPage", () => {
 
   it("shows sessions grouped by agent type in the sidebar", async () => {
     renderChat();
-    // All customer_service sessions visible under their group
+    await screen.findByTestId("agent-type-nav");
+
+    // Expand Customer Service collapsible
+    const allCSEls = await screen.findAllByText("Customer Service");
+    await userEvent.click(allCSEls[allCSEls.length - 1]);
     expect(await screen.findByText("Hello there")).toBeInTheDocument();
     expect(screen.getByText("Hi from Bob")).toBeInTheDocument();
-    // Refund email session visible under its group
-    expect(screen.getByText("Refund request email")).toBeInTheDocument();
+
+    // Expand Refund Email collapsible
+    const allREEls = await screen.findAllByText("Refund Email");
+    await userEvent.click(allREEls[allREEls.length - 1]);
+    expect(await screen.findByText("Refund request email")).toBeInTheDocument();
   });
 
   it("loads read-only transcript when a sidebar session is clicked", async () => {
     renderChat();
+
+    const allCSEls = await screen.findAllByText("Customer Service");
+    await userEvent.click(allCSEls[allCSEls.length - 1]);
 
     await userEvent.click(await screen.findByText("Hello there"));
 
@@ -135,6 +149,9 @@ describe("ChatPage", () => {
   it("clicking an Agent Type button resets to a writable empty conversation", async () => {
     renderChat();
 
+    const allCSEls = await screen.findAllByText("Customer Service");
+    await userEvent.click(allCSEls[allCSEls.length - 1]);
+
     await userEvent.click(await screen.findByText("Hello there"));
     await screen.findByText("Hi! How can I help you today?");
 
@@ -143,6 +160,18 @@ describe("ChatPage", () => {
 
     expect(await screen.findByText(/start a fresh conversation/i)).toBeInTheDocument();
     await waitFor(() => expect(screen.getByRole("textbox", { name: /message/i })).not.toBeDisabled());
+  });
+
+  it("loads refund email session history without being overwritten by provider auto-selection", async () => {
+    renderChat();
+
+    const allREEls = await screen.findAllByText("Refund Email");
+    await userEvent.click(allREEls[allREEls.length - 1]);
+
+    await userEvent.click(await screen.findByText("Refund request email"));
+
+    expect(await screen.findByText("I can help draft your refund email.")).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByRole("textbox", { name: /message/i })).toBeDisabled());
   });
 
   it("disables composer and send button when no customer is available", async () => {
@@ -201,6 +230,9 @@ describe("ChatPage", () => {
 
   it("shows the trace empty state in history mode without requiring manual expansion", async () => {
     renderChat();
+
+    const allCSEls = await screen.findAllByText("Customer Service");
+    await userEvent.click(allCSEls[allCSEls.length - 1]);
 
     await userEvent.click(await screen.findByText("Hello there"));
     await screen.findByText("Hi! How can I help you today?");

@@ -132,8 +132,9 @@ export function getSessions(): Promise<SessionSummary[]> {
   return fetchJson<SessionSummary[]>("/sessions");
 }
 
-export function getSessionMessages(threadId: string): Promise<SessionMessage[]> {
-  return fetchJson<SessionMessage[]>(`/sessions/${threadId}`);
+export async function getSessionMessages(threadId: string): Promise<SessionMessage[]> {
+  const data = await fetchJson<{ session: unknown; messages: SessionMessage[] }>(`/sessions/${threadId}`);
+  return data.messages;
 }
 
 export async function postChatStream(

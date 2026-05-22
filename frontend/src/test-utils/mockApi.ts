@@ -221,8 +221,9 @@ export function createMockFetch(config: MockApiConfig) {
 
     if (pathname.startsWith("/sessions/")) {
       const threadId = pathname.split("/").pop() ?? "";
+      const messages = config.sessionMessages?.[threadId] ?? [];
       return new Response(
-        JSON.stringify(config.sessionMessages?.[threadId] ?? []),
+        JSON.stringify({ session: {}, messages }),
         {
           status: 200,
           headers: { "Content-Type": "application/json" },

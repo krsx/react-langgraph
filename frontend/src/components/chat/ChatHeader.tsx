@@ -66,7 +66,7 @@ export function ChatHeader() {
       data-testid="chat-header"
       className="sticky top-0 z-20 flex shrink-0 items-center gap-2 border-b border-border bg-background/95 px-4 py-2 backdrop-blur supports-[backdrop-filter]:bg-background/80"
     >
-      {activeAgentType === "customer_service" && (
+      {activeAgentType === "customer_service" ? (
         <div className="flex min-w-0 flex-1 flex-col gap-0.5">
           <span className="text-xs font-medium uppercase tracking-widest text-muted-foreground">Customer</span>
           <Select
@@ -85,6 +85,8 @@ export function ChatHeader() {
             </SelectContent>
           </Select>
         </div>
+      ) : (
+        <div className="flex-1" />
       )}
 
       {/* Provider */}

@@ -97,6 +97,11 @@ describe("App layout – foundation", () => {
       ],
     });
 
+    // Session history collapsibles start closed — expand Customer Service section first
+    await screen.findByTestId("agent-type-nav");
+    const allCustomerServiceEls = await screen.findAllByText("Customer Service");
+    await user.click(allCustomerServiceEls[allCustomerServiceEls.length - 1]);
+
     expect(await screen.findByText(sessionSummary)).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: /toggle sidebar/i }));
