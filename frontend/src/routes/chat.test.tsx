@@ -23,8 +23,12 @@ const BOB = { customer_id: 2, name: "Bob Tan", email: "bob@example.com", created
 const CUSTOMERS = [ALICE, BOB];
 
 const PROVIDERS = {
-  openrouter: { available: true, models: ["gpt-4o", "claude-3-5-sonnet"], default_model: "gpt-4o" },
-  ollama: { available: false, models: [], default_model: null },
+  openrouter: {
+    available: true,
+    models: ["google/gemini-2.5-flash"],
+    default_model: "google/gemini-2.5-flash",
+  },
+  ollama: { available: true, models: ["qwen3:4b"], default_model: "qwen3:4b" },
 };
 
 const SESSIONS = [
@@ -82,7 +86,9 @@ describe("ChatPage", () => {
 
     await waitFor(() => expect(screen.getByRole("combobox", { name: /customer/i })).toHaveTextContent("Alice Chen"));
     await waitFor(() => expect(screen.getByRole("combobox", { name: /provider/i })).toHaveTextContent("openrouter"));
-    await waitFor(() => expect(screen.getByRole("combobox", { name: /model/i })).toHaveTextContent("gpt-4o"));
+    await waitFor(() =>
+      expect(screen.getByRole("combobox", { name: /model/i })).toHaveTextContent("google/gemini-2.5-flash"),
+    );
 
     expect(container.querySelector(".h-8.w-px.bg-border")).toBeNull();
   });
@@ -144,6 +150,23 @@ describe("ChatPage", () => {
 
     expect(await screen.findByText("Hi! How can I help you today?")).toBeInTheDocument();
     await waitFor(() => expect(screen.getByRole("textbox", { name: /message/i })).toBeDisabled());
+  });
+
+  it("restores the session customer context when opening Customer Service history", async () => {
+    renderChat();
+
+    await waitFor(() =>
+      expect(screen.getByRole("combobox", { name: /customer/i })).toHaveTextContent("Alice Chen"),
+    );
+
+    const allCSEls = await screen.findAllByText("Customer Service");
+    await userEvent.click(allCSEls[allCSEls.length - 1]);
+    await userEvent.click(await screen.findByText("Hi from Bob"));
+
+    expect(await screen.findByText("Hi from Bob")).toBeInTheDocument();
+    await waitFor(() =>
+      expect(screen.getByRole("combobox", { name: /customer/i })).toHaveTextContent("Bob Tan"),
+    );
   });
 
   it("clicking an Agent Type button resets to a writable empty conversation", async () => {
@@ -316,6 +339,35 @@ describe("ChatPage", () => {
 
     expect(await screen.findByText(/start a fresh conversation/i)).toBeInTheDocument();
     expect(screen.queryByText("A response")).not.toBeInTheDocument();
+  });
+
+  it("switching to a workspace agent reapplies the OpenRouter Gemini default after a manual override", async () => {
+    renderChat({ customers: CUSTOMERS, providers: PROVIDERS, sessions: [] });
+
+    await waitForReady();
+    await waitFor(() =>
+      expect(screen.getByRole("combobox", { name: /provider/i })).toHaveTextContent("openrouter"),
+    );
+
+    await openSelect(screen.getByRole("combobox", { name: /provider/i }));
+    await userEvent.click(await screen.findByRole("option", { name: /ollama/i }));
+
+    await waitFor(() =>
+      expect(screen.getByRole("combobox", { name: /provider/i })).toHaveTextContent("ollama"),
+    );
+    await waitFor(() =>
+      expect(screen.getByRole("combobox", { name: /model/i })).toHaveTextContent("qwen3:4b"),
+    );
+
+    const nav = screen.getByTestId("agent-type-nav");
+    await userEvent.click(within(nav).getByRole("button", { name: /refund email/i }));
+
+    await waitFor(() =>
+      expect(screen.getByRole("combobox", { name: /provider/i })).toHaveTextContent("openrouter"),
+    );
+    await waitFor(() =>
+      expect(screen.getByRole("combobox", { name: /model/i })).toHaveTextContent("google/gemini-2.5-flash"),
+    );
   });
 
   it("sendMessage includes agent_type in the chat request body", async () => {

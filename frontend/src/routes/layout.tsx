@@ -58,10 +58,10 @@ export function Layout() {
     return acc;
   }, {} as Record<AgentType, typeof sessions>);
 
-  async function handleSessionClick(threadId: string, agentType: AgentType) {
+  async function handleSessionClick(threadId: string, agentType: AgentType, customerId: number | null) {
     const messages = await getSessionMessages(threadId);
     selectAgentType(agentType);
-    loadHistory(threadId, messages);
+    loadHistory(threadId, messages, customerId);
     if (location.pathname !== "/chat") navigate("/chat");
   }
 
@@ -149,8 +149,8 @@ function SessionHistorySection({
   onSessionClick,
 }: {
   agentTypeItems: typeof AGENT_TYPE_ITEMS;
-  sessionsByAgentType: Record<AgentType, Array<{ thread_id: string; first_message: string; created_at: string; agent_type: AgentType }>>;
-  onSessionClick: (threadId: string, agentType: AgentType) => Promise<void>;
+  sessionsByAgentType: Record<AgentType, Array<{ thread_id: string; customer_id: number | null; first_message: string; created_at: string; agent_type: AgentType }>>;
+  onSessionClick: (threadId: string, agentType: AgentType, customerId: number | null) => Promise<void>;
 }) {
   const { state } = useSidebar();
 
@@ -181,7 +181,7 @@ function SessionHistorySection({
                         <SidebarMenuItem key={session.thread_id}>
                           <SidebarMenuButton
                             className="h-auto flex-col items-start gap-0 py-2 text-left"
-                            onClick={() => void onSessionClick(session.thread_id, item.agentType)}
+                            onClick={() => void onSessionClick(session.thread_id, item.agentType, session.customer_id)}
                           >
                             <span className="line-clamp-2 text-sm leading-snug">
                               {session.first_message}

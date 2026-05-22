@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { getCustomers, getProviders } from "@/lib/api";
 import { useChatContext } from "@/lib/chat-context";
@@ -19,7 +19,9 @@ export function ChatHeader() {
     selectProvider,
     selectModel,
     activeAgentType,
+    view,
   } = useChatContext();
+  const previousAgentTypeRef = useRef(activeAgentType);
 
   const { data: customers = [] } = useQuery({ queryKey: ["customers"], queryFn: getCustomers });
   const { data: providers = {} } = useQuery({ queryKey: ["providers"], queryFn: getProviders });
@@ -44,9 +46,16 @@ export function ChatHeader() {
   }, [providers, selectedProvider, selectProvider]);
 
   useEffect(() => {
+    const previousAgentType = previousAgentTypeRef.current;
+    previousAgentTypeRef.current = activeAgentType;
+
     if (activeAgentType === "customer_service") return;
-    if (selectedProvider !== null) return;
     if (Object.keys(providers).length === 0) return;
+    if (view.mode !== "writable") return;
+
+    const enteringNewAgentType = previousAgentType !== activeAgentType;
+    if (!enteringNewAgentType && selectedProvider !== null) return;
+
     const openrouter = providers["openrouter"];
     if (openrouter?.available && openrouter.models.length > 0) {
       selectProvider("openrouter", openrouter.models, openrouter.default_model);
@@ -57,7 +66,7 @@ export function ChatHeader() {
         selectProvider(name, p.models, p.default_model);
       }
     }
-  }, [activeAgentType, providers, selectedProvider, selectProvider]);
+  }, [activeAgentType, providers, selectedProvider, selectProvider, view.mode]);
 
   const activeProviderModels = selectedProvider ? (providers[selectedProvider]?.models ?? []) : [];
 

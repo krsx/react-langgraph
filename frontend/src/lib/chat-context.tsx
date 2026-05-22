@@ -27,7 +27,7 @@ type ChatAction =
   | { type: "customer_selected"; customerId: number }
   | { type: "provider_selected"; provider: string; models: string[]; defaultModel?: string | null }
   | { type: "model_selected"; model: string }
-  | { type: "history_loaded"; threadId: string; transcript: SessionMessage[] }
+  | { type: "history_loaded"; threadId: string; transcript: SessionMessage[]; customerId?: number | null }
   | { type: "new_chat" }
   | { type: "turn_started"; turnId: string; message: string }
   | { type: "stream_event"; turnId: string; event: ChatStreamEvent };
@@ -69,6 +69,7 @@ function chatReducer(state: ChatState, action: ChatAction): ChatState {
     case "history_loaded":
       return {
         ...state,
+        activeCustomerId: action.customerId ?? state.activeCustomerId,
         view: { mode: "history", threadId: action.threadId, transcript: action.transcript },
         isStreaming: false,
       };
@@ -145,7 +146,7 @@ type ChatContextValue = ChatState & {
   selectCustomer: (customerId: number) => void;
   selectProvider: (provider: string, models: string[], defaultModel?: string | null) => void;
   selectModel: (model: string) => void;
-  loadHistory: (threadId: string, transcript: SessionMessage[]) => void;
+  loadHistory: (threadId: string, transcript: SessionMessage[], customerId?: number | null) => void;
   newChat: () => void;
   sendMessage: (message: string) => Promise<void>;
 };
@@ -179,8 +180,8 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     dispatch({ type: "model_selected", model });
   }, []);
 
-  const loadHistory = useCallback((threadId: string, transcript: SessionMessage[]) => {
-    dispatch({ type: "history_loaded", threadId, transcript });
+  const loadHistory = useCallback((threadId: string, transcript: SessionMessage[], customerId?: number | null) => {
+    dispatch({ type: "history_loaded", threadId, transcript, customerId });
   }, []);
 
   const newChat = useCallback(() => {
