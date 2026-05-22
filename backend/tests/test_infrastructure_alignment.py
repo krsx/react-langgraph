@@ -6,9 +6,11 @@ REPO_ROOT = BACKEND_DIR.parent
 
 
 def test_dockerfile_entrypoint_module_exists():
-    dockerfile = (BACKEND_DIR / "Dockerfile").read_text()
+    # main:app is now referenced inside entrypoint.sh, not the Dockerfile CMD.
+    # Verify the script exists and still wires up the correct ASGI module.
+    entrypoint = (BACKEND_DIR / "entrypoint.sh").read_text()
 
-    assert "main:app" in dockerfile
+    assert "main:app" in entrypoint
     assert (BACKEND_DIR / "main.py").exists()
 
 
@@ -77,3 +79,57 @@ def test_mysql_refresh_seed_script_exists_and_reuses_compose_exec():
     assert "backend/db/seed.sql" in script_body
     assert "DROP DATABASE IF EXISTS" in script_body
     assert "CREATE DATABASE" in script_body
+
+
+# ── workspace-mcp infrastructure ─────────────────────────────────────────────
+
+def test_dockerfile_copies_and_invokes_entrypoint_script():
+    dockerfile = (BACKEND_DIR / "Dockerfile").read_text()
+
+    assert "COPY entrypoint.sh" in dockerfile
+    assert "ENTRYPOINT" in dockerfile
+    assert "entrypoint.sh" in dockerfile
+    assert (BACKEND_DIR / "entrypoint.sh").exists()
+
+
+def test_dockerfile_installs_workspace_tools():
+    dockerfile = (BACKEND_DIR / "Dockerfile").read_text()
+
+    assert "workspace-mcp" in dockerfile
+    assert "workspace-cli" in dockerfile
+
+
+def test_docker_compose_backend_has_workspace_mcp_env_vars():
+    compose = (REPO_ROOT / "docker-compose.yml").read_text()
+
+    assert "WORKSPACE_MCP_COMMAND" in compose
+    assert "WORKSPACE_MCP_ARGS" in compose
+
+
+def test_env_example_documents_workspace_mcp_vars():
+    env_example = (REPO_ROOT / ".env.example").read_text()
+
+    assert "WORKSPACE_MCP_COMMAND" in env_example
+    assert "WORKSPACE_MCP_ARGS" in env_example
+
+
+def test_entrypoint_script_is_executable_and_has_oauth_gate():
+    import os
+    script = BACKEND_DIR / "entrypoint.sh"
+
+    assert script.exists()
+    assert os.access(script, os.X_OK), "entrypoint.sh is not executable"
+    body = script.read_text()
+    assert body.startswith("#!/usr/bin/env bash")
+    assert "workspace-mcp auth" in body
+    assert "uvicorn" in body
+
+
+def test_docker_compose_backend_mounts_token_cache_volume():
+    import yaml
+
+    compose = yaml.safe_load((REPO_ROOT / "docker-compose.yml").read_text())
+
+    backend_volumes = compose["services"]["backend"]["volumes"]
+    assert any("workspace_mcp_tokens" in str(v) for v in backend_volumes)
+    assert "workspace_mcp_tokens" in compose.get("volumes", {})

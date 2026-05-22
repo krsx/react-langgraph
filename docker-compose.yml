@@ -23,9 +23,12 @@ services:
     environment:
       MYSQL_HOST: mysql
       OLLAMA_BASE_URL: http://ollama:11434
+      WORKSPACE_MCP_COMMAND: ${WORKSPACE_MCP_COMMAND:-workspace-mcp}
+      WORKSPACE_MCP_ARGS: ${WORKSPACE_MCP_ARGS:-serve}
     volumes:
       - ./backend:/app
       - backend_venv:/app/.venv
+      - workspace_mcp_tokens:/root/.workspace-mcp
     command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload --reload-dir /app
     ports:
       - "8000:8000"
@@ -69,3 +72,4 @@ volumes:
   ollama_data:
   backend_venv:
   frontend_node_modules:
+  workspace_mcp_tokens:
