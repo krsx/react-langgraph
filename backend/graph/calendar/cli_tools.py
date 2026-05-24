@@ -17,7 +17,7 @@ def _run_cli(args: list[str], timeout: int = 15) -> str:
         )
     except subprocess.TimeoutExpired:
         return f"workspace-cli timed out after {timeout} seconds."
-    except FileNotFoundError:
+    except (FileNotFoundError, PermissionError):
         return "workspace-cli was not found. Install it and ensure it is available in PATH."
 
     output = (completed.stdout or "").strip()

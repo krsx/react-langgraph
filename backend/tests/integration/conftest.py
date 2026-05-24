@@ -175,6 +175,16 @@ def _create_calendar_event_rate_limited(summary: str, start: str, end: str) -> s
     return json.dumps({"error": "rate limit exceeded: Calendar API write quota exhausted"})
 
 
+@tool
+def suggest_meeting_time(duration_minutes: int, time_min: str, time_max: str) -> str:
+    """Find available time slots for scheduling a meeting."""
+    return json.dumps([
+        {"start": "2024-01-15T10:00:00", "end": "2024-01-15T10:30:00"},
+        {"start": "2024-01-15T14:00:00", "end": "2024-01-15T14:30:00"},
+        {"start": "2024-01-16T09:00:00", "end": "2024-01-16T09:30:00"},
+    ])
+
+
 MOCK_GMAIL_TOOLS = [search_gmail, get_message, send_reply]
 MOCK_GMAIL_ERROR_TOOLS = [_search_gmail_permission_denied]
 
@@ -240,8 +250,8 @@ def tool_list() -> str:
 
 
 MOCK_CALENDAR_CLI_TOOLS = [today_events, list_events, list_calendars, get_event, tool_list]
-MOCK_CALENDAR_MCP_TOOLS = [create_calendar_event]
-MOCK_CALENDAR_ERROR_MCP_TOOLS = [_create_calendar_event_rate_limited]
+MOCK_CALENDAR_MCP_TOOLS = [create_calendar_event, suggest_meeting_time]
+MOCK_CALENDAR_ERROR_MCP_TOOLS = [_create_calendar_event_rate_limited, suggest_meeting_time]
 
 
 # ── Workspace fixtures ────────────────────────────────────────────────────────
