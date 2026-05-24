@@ -23,8 +23,10 @@ services:
     environment:
       MYSQL_HOST: mysql
       OLLAMA_BASE_URL: http://ollama:11434
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
       WORKSPACE_MCP_COMMAND: ${WORKSPACE_MCP_COMMAND:-workspace-mcp}
-      WORKSPACE_MCP_ARGS: ${WORKSPACE_MCP_ARGS:-serve}
+      WORKSPACE_MCP_ARGS: ${WORKSPACE_MCP_ARGS:-serve --single-user --tool-tier core --permissions gmail:send,calendar}
     volumes:
       - ./backend:/app
       - backend_venv:/app/.venv

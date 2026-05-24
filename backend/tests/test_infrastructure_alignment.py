@@ -6,11 +6,11 @@ REPO_ROOT = BACKEND_DIR.parent
 
 
 def test_dockerfile_entrypoint_module_exists():
-    # main:app is now referenced inside entrypoint.sh, not the Dockerfile CMD.
-    # Verify the script exists and still wires up the correct ASGI module.
-    entrypoint = (BACKEND_DIR / "entrypoint.sh").read_text()
+    # main:app is declared in the Dockerfile CMD; the entrypoint uses exec "$@"
+    # to forward it. Verify the ASGI module exists on disk.
+    dockerfile = (BACKEND_DIR / "Dockerfile").read_text()
 
-    assert "main:app" in entrypoint
+    assert "main:app" in dockerfile
     assert (BACKEND_DIR / "main.py").exists()
 
 
@@ -125,7 +125,6 @@ def test_entrypoint_script_is_executable_and_has_oauth_gate():
     body = script.read_text()
     assert body.startswith("#!/usr/bin/env bash")
     assert "workspace-mcp auth" in body
-    assert "uvicorn" in body
 
 
 def test_docker_compose_backend_mounts_token_cache_volume():
@@ -136,3 +135,49 @@ def test_docker_compose_backend_mounts_token_cache_volume():
     backend_volumes = compose["services"]["backend"]["volumes"]
     assert any("workspace_mcp_tokens" in str(v) for v in backend_volumes)
     assert "workspace_mcp_tokens" in compose.get("volumes", {})
+
+
+def test_entrypoint_execs_configured_command():
+    # The entrypoint must use exec "$@" so the container's configured command
+    # (from Docker Compose or CMD) is preserved rather than hardcoded.
+    body = (BACKEND_DIR / "entrypoint.sh").read_text()
+    assert 'exec "$@"' in body
+
+
+def test_dockerfile_provides_default_uvicorn_cmd():
+    # The image must supply a CMD so it works standalone; docker-compose command:
+    # overrides this default via exec "$@" in the entrypoint.
+    dockerfile = (BACKEND_DIR / "Dockerfile").read_text()
+    assert "CMD" in dockerfile
+    assert "main:app" in dockerfile
+
+
+def test_docker_compose_backend_passes_google_oauth_vars():
+    # Google OAuth client credentials must reach the backend container so the
+    # workspace-mcp subprocess inherits them for authentication.
+    compose = (REPO_ROOT / "docker-compose.yml").read_text()
+    assert "GOOGLE_CLIENT_ID" in compose
+    assert "GOOGLE_CLIENT_SECRET" in compose
+
+
+def test_workspace_mcp_args_default_includes_required_flags():
+    # The default WORKSPACE_MCP_ARGS must configure the shared stdio subprocess:
+    # single-user mode, core tool tier, combined Workspace Agent permissions.
+    compose = (REPO_ROOT / "docker-compose.yml").read_text()
+    assert "single-user" in compose
+    assert "tool-tier core" in compose
+    assert "gmail:send" in compose
+    assert "calendar" in compose
+
+
+def test_env_example_documents_google_oauth_vars():
+    env_example = (REPO_ROOT / ".env.example").read_text()
+    assert "GOOGLE_CLIENT_ID" in env_example
+    assert "GOOGLE_CLIENT_SECRET" in env_example
+
+
+def test_env_example_workspace_mcp_args_has_full_config():
+    env_example = (REPO_ROOT / ".env.example").read_text()
+    assert "single-user" in env_example
+    assert "tool-tier core" in env_example
+    assert "gmail:send" in env_example

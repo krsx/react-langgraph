@@ -17,4 +17,4 @@ else
     echo "[entrypoint] Google OAuth tokens found. Skipping auth."
 fi
 
-exec uvicorn main:app --host 0.0.0.0 --port 8000
+exec "$@"
