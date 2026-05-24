@@ -120,3 +120,34 @@ def test_mcp_manager_stop_clears_state_without_raising():
 
     assert manager._client is None
     assert manager._tools == []
+
+
+# ── Cycle 15: app lifespan closes all async graphs on shutdown ───────────────
+
+def test_app_lifespan_closes_all_async_graphs(monkeypatch):
+    import importlib
+    from fastapi.testclient import TestClient
+
+    start = AsyncMock()
+    stop = AsyncMock()
+    close_customer = AsyncMock()
+    close_refund = AsyncMock()
+    close_calendar = AsyncMock()
+
+    monkeypatch.setattr("graph.mcp_client.mcp_manager.start", start)
+    monkeypatch.setattr("graph.mcp_client.mcp_manager.stop", stop)
+    monkeypatch.setattr("graph.customer_service.graph.close_async_graph", close_customer)
+    monkeypatch.setattr("graph.refund_email.graph.close_async_graph", close_refund)
+    monkeypatch.setattr("graph.calendar.graph.close_async_graph", close_calendar)
+
+    main = importlib.import_module("main")
+    main = importlib.reload(main)
+
+    with TestClient(main.app):
+        pass
+
+    start.assert_awaited_once()
+    stop.assert_awaited_once()
+    close_customer.assert_awaited_once()
+    close_refund.assert_awaited_once()
+    close_calendar.assert_awaited_once()
