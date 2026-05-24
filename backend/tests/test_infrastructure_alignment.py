@@ -156,8 +156,10 @@ def test_docker_compose_backend_passes_google_oauth_vars():
     # Google OAuth client credentials must reach the backend container so the
     # workspace-mcp subprocess inherits them for authentication.
     compose = (REPO_ROOT / "docker-compose.yml").read_text()
-    assert "GOOGLE_CLIENT_ID" in compose
-    assert "GOOGLE_CLIENT_SECRET" in compose
+    assert "GOOGLE_OAUTH_CLIENT_ID" in compose
+    assert "GOOGLE_OAUTH_CLIENT_SECRET" in compose
+    assert "GOOGLE_CLIENT_ID" not in compose
+    assert "GOOGLE_CLIENT_SECRET" not in compose
 
 
 def test_workspace_mcp_args_default_includes_required_flags():
@@ -172,8 +174,10 @@ def test_workspace_mcp_args_default_includes_required_flags():
 
 def test_env_example_documents_google_oauth_vars():
     env_example = (REPO_ROOT / ".env.example").read_text()
-    assert "GOOGLE_CLIENT_ID" in env_example
-    assert "GOOGLE_CLIENT_SECRET" in env_example
+    assert "GOOGLE_OAUTH_CLIENT_ID" in env_example
+    assert "GOOGLE_OAUTH_CLIENT_SECRET" in env_example
+    assert "GOOGLE_CLIENT_ID" not in env_example
+    assert "GOOGLE_CLIENT_SECRET" not in env_example
 
 
 def test_env_example_workspace_mcp_args_has_full_config():
