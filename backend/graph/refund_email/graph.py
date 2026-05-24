@@ -11,7 +11,9 @@ from graph.shared.verifier import verifier
 from graph.refund_email.planner import make_planner
 
 CHECKPOINT_DB_PATH = "checkpoints_refund_email.db"
-RECURSION_LIMIT = 10
+# Batch refund processing can legitimately loop across multiple emails.
+# Keep enough headroom for search + read/send cycles without masking infinite loops.
+RECURSION_LIMIT = 50
 
 _async_checkpointer_cm: AbstractAsyncContextManager[AsyncSqliteSaver] | None = None
 _async_graph = None

@@ -203,6 +203,80 @@ def test_batch_workflow_produces_multiple_tool_calls_across_steps():
     assert len(last.content) > 0
 
 
+def test_batch_workflow_handles_multiple_emails_without_hitting_default_recursion_limit():
+    import sqlite3
+    import json
+    from unittest.mock import MagicMock, patch
+    from langchain_core.messages import HumanMessage, AIMessage
+    from langchain_core.tools import tool
+    from langgraph.checkpoint.sqlite import SqliteSaver
+    from graph.refund_email.graph import compile_graph
+
+    @tool
+    def search_gmail(query: str) -> str:
+        """Search Gmail for emails matching a query."""
+        return json.dumps([
+            {"id": "msg1", "subject": "Refund request"},
+            {"id": "msg2", "subject": "Return request"},
+        ])
+
+    @tool
+    def get_message(message_id: str) -> str:
+        """Get the full content of a Gmail message by ID."""
+        return json.dumps({"id": message_id, "body": f"Please help with {message_id}."})
+
+    @tool
+    def send_reply(message_id: str, body: str) -> str:
+        """Send a reply to an email."""
+        return json.dumps({"status": "sent", "message_id": message_id})
+
+    responses = iter([
+        AIMessage(
+            content="",
+            tool_calls=[{"id": "tc1", "name": "search_gmail", "args": {"query": "refund OR return"}}],
+        ),
+        AIMessage(
+            content="",
+            tool_calls=[{"id": "tc2", "name": "get_message", "args": {"message_id": "msg1"}}],
+        ),
+        AIMessage(
+            content="",
+            tool_calls=[{"id": "tc3", "name": "send_reply", "args": {"message_id": "msg1", "body": "Reply for msg1"}}],
+        ),
+        AIMessage(
+            content="",
+            tool_calls=[{"id": "tc4", "name": "get_message", "args": {"message_id": "msg2"}}],
+        ),
+        AIMessage(
+            content="",
+            tool_calls=[{"id": "tc5", "name": "send_reply", "args": {"message_id": "msg2", "body": "Reply for msg2"}}],
+        ),
+        AIMessage(content="Processed 2 emails: 1 REFUND_REQUEST, 1 RETURN_REQUEST. Sent 2 replies."),
+    ])
+
+    mock_llm = MagicMock()
+    mock_llm.bind_tools.return_value = mock_llm
+    mock_llm.invoke.side_effect = lambda messages, config=None, **kwargs: next(responses)
+
+    conn = sqlite3.connect(":memory:", check_same_thread=False)
+    g = compile_graph([search_gmail, get_message, send_reply], SqliteSaver(conn))
+
+    from langgraph.errors import GraphRecursionError
+
+    try:
+        with patch("graph.refund_email.planner.create_llm", return_value=mock_llm):
+            result = g.invoke(
+                {"messages": [HumanMessage(content="Process all refund emails")], "customer_id": None},
+                config={"configurable": {"thread_id": "re-batch-multi-email-test-1"}},
+            )
+    except GraphRecursionError:
+        pytest.fail("Two-email batch workflow hit GraphRecursionError with the default graph config")
+
+    last = result["messages"][-1]
+    assert isinstance(last, AIMessage)
+    assert "Processed 2 emails" in last.content
+
+
 # ── Cycle 9: classification labels appear in planner output ──────────────────
 
 def test_classification_labels_produced_in_agent_response():
