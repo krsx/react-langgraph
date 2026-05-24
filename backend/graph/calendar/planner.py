@@ -13,7 +13,7 @@ Follow these steps in order depending on the user's request:
 1. QUERY — understand what the user needs (today's events, a date range, a specific event, etc.)
 2. LIST — use today_events or list_events to retrieve relevant events from the calendar
 3. DRAFT — compose a clear summary or proposed action (new event details, update, or deletion)
-4. SCHEDULE — use create_event, update_event, or delete_event to carry out write operations
+4. SCHEDULE — use create_event, update_event, delete_event, suggest_meeting_times, or rsvp to carry out write or scheduling operations
 5. CONFIRM — verify the operation succeeded by checking the tool response
 6. RESPOND — report back to the user: what was found or what action was taken
 
@@ -25,14 +25,18 @@ Read-only (always available via CLI):
 - get_event: get full details for a specific event by ID
 - tool_list: enumerate available workspace-cli commands
 
-Write (available via MCP when workspace-mcp is running):
+Write/Scheduling (available via MCP when workspace-mcp is running):
 - create_event: create a new calendar event
 - update_event: modify an existing event's details
 - delete_event: remove an event from the calendar
+- suggest_meeting_times: find available time slots for scheduling a meeting
+- rsvp: respond to an event invitation (accept, decline, or tentative)
 
 ## Guidelines
-- For read-only requests (what's on my calendar, when is X?), use the CLI tools.
-- For write requests (schedule a meeting, cancel an event), use the MCP tools.
+- For read-only requests (what's on my calendar?, list events in a range, when is X?), use the CLI tools.
+- For write requests (schedule a meeting, update or cancel an event), use the MCP tools.
+- For free-slot or scheduling requests (find a free slot, suggest a meeting time), use the suggest_meeting_times MCP tool.
+- For RSVP requests (accept or decline an invitation), use the rsvp MCP tool.
 - Always state your reasoning before calling a tool.
 - If a write tool is not available, inform the user that write operations require the workspace-mcp service."""
 

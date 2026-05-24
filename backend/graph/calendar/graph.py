@@ -49,6 +49,11 @@ async def get_async_graph():
 
     if _async_graph is None:
         mcp_tools = mcp_manager.get_tools("calendar")
+        if not mcp_tools:
+            raise RuntimeError(
+                "Calendar MCP tools are not available. "
+                "Ensure the workspace MCP service is running before accessing the calendar graph."
+            )
         tools = CLI_TOOLS + mcp_tools
 
         _async_checkpointer_cm = AsyncSqliteSaver.from_conn_string(CHECKPOINT_DB_PATH)

@@ -31,11 +31,15 @@ def _get_calendar_graph():
     global _cal_conn, _cal_graph
 
     if _cal_graph is None:
+        mcp_tools = mcp_manager.get_tools("calendar")
+        if not mcp_tools:
+            raise RuntimeError(
+                "Calendar MCP tools are not available. "
+                "Ensure the workspace MCP service is running before accessing the calendar graph."
+            )
         _cal_conn = sqlite3.connect("checkpoints_calendar.db", check_same_thread=False)
-        _cal_graph = _cal_compile_graph(
-            _cal_cli_tools + mcp_manager.get_tools("calendar"),
-            SqliteSaver(_cal_conn),
-        )
+        _cal_graph = _cal_compile_graph(_cal_cli_tools + mcp_tools, SqliteSaver(_cal_conn))
+
     return _cal_graph
 
 
