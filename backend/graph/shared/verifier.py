@@ -81,7 +81,11 @@ def verifier(state: AgentState) -> dict:
     last_ai = next((m for m in reversed(messages) if isinstance(m, AIMessage)), None)
     ai_content = (last_ai.content or "").lower() if last_ai else ""
 
-    error_keywords = ["not found", "error", "cannot", "could not", "unable", "invalid", "not exist", "not accessible", "no results", "empty"]
+    error_keywords = [
+        "not found", "error", "cannot", "could not", "unable", "invalid",
+        "not exist", "not accessible", "no results", "empty",
+        "permission", "authentication", "rate limit", "quota", "jsonrpc",
+    ]
     llm_acknowledged = any(kw in ai_content for kw in error_keywords)
 
     override = None if llm_acknowledged else f"I could not complete that request: {all_issues[0]}"
@@ -89,7 +93,11 @@ def verifier(state: AgentState) -> dict:
     result: dict = {
         "verification": {
             "valid": False,
-            "checks": [f"tool error: {e}" for e in errors] + [f"empty lookup: {e}" for e in empty_lookups],
+            "checks": (
+                [f"tool error: {e}" for e in errors]
+                + [f"mcp error: {e}" for e in mcp_errors]
+                + [f"empty lookup: {e}" for e in empty_lookups]
+            ),
             "override_message": override,
         },
         "tool_results": parsed_results,

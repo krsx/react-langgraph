@@ -17,3 +17,8 @@ frontend/dist/
 
 checkpoints.db
 /backend/checkpoints.db
+backend/checkpoints*.db
+backend/checkpoints*.db-shm
+backend/checkpoints*.db-wal
+*.db-shm
+*.db-wal

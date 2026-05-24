@@ -73,3 +73,50 @@ def test_mcp_manager_start_initializes_when_env_var_present(monkeypatch):
         asyncio.run(manager.start())
 
     assert manager._tools == [mock_tool]
+
+
+# ── Cycle 12: get_tools customer_service returns empty list ───────────────────
+
+def test_get_tools_customer_service_returns_empty():
+    from graph.mcp_client import McpClientManager
+
+    gmail_tool = MagicMock()
+    gmail_tool.name = "search_gmail"
+
+    manager = McpClientManager.__new__(McpClientManager)
+    manager._tools = [gmail_tool]
+
+    tools = manager.get_tools("customer_service")
+
+    assert tools == []
+
+
+# ── Cycle 13: get_tools unknown agent_type raises ValueError ──────────────────
+
+def test_get_tools_unknown_type_raises_value_error():
+    from graph.mcp_client import McpClientManager
+
+    manager = McpClientManager.__new__(McpClientManager)
+    manager._tools = []
+
+    with pytest.raises(ValueError, match="unknown_agent"):
+        manager.get_tools("unknown_agent")
+
+
+# ── Cycle 14: stop() clears state without raising NotImplementedError ─────────
+
+def test_mcp_manager_stop_clears_state_without_raising():
+    """stop() must not raise even when MultiServerMCPClient.__aexit__ raises NotImplementedError."""
+    import asyncio
+    from graph.mcp_client import McpClientManager
+
+    mock_client = MagicMock()
+    mock_client.__aexit__ = MagicMock(side_effect=NotImplementedError("context manager not supported"))
+    manager = McpClientManager()
+    manager._client = mock_client
+    manager._tools = [MagicMock()]
+
+    asyncio.run(manager.stop())
+
+    assert manager._client is None
+    assert manager._tools == []

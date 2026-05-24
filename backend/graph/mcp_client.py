@@ -35,17 +35,23 @@ class McpClientManager:
         self._tools = await self._client.get_tools()
 
     async def stop(self) -> None:
-        if self._client is not None:
-            await self._client.__aexit__(None, None, None)
-            self._client = None
-            self._tools = []
+        # MultiServerMCPClient uses on-demand sessions per tool call (no persistent subprocess).
+        # __aexit__ intentionally raises NotImplementedError in the adapter library, so we
+        # simply release our references — no subprocess cleanup is required.
+        self._client = None
+        self._tools = []
 
     def get_tools(self, agent_type: str) -> list[Any]:
         if agent_type == "refund_email":
             return [t for t in self._tools if _is_gmail_tool(t)]
         if agent_type == "calendar":
             return [t for t in self._tools if _is_calendar_tool(t)]
-        return []
+        if agent_type == "customer_service":
+            return []
+        raise ValueError(
+            f"Unsupported agent_type '{agent_type}' for MCP tool filtering. "
+            "Must be one of: refund_email, calendar, customer_service"
+        )
 
 
 mcp_manager = McpClientManager()
