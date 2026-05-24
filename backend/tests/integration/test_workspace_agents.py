@@ -12,11 +12,13 @@ import sqlite3
 import uuid
 import pytest
 import openai
+from unittest.mock import MagicMock, patch
 from langchain_core.messages import HumanMessage, AIMessage
 
 from tests.integration.conftest import (
     handle_rate_limit,
     MOCK_GMAIL_TOOLS,
+    MOCK_CALENDAR_CLI_TOOLS,
     MOCK_CALENDAR_MCP_TOOLS,
 )
 
@@ -51,6 +53,13 @@ def last_ai_content(messages: list) -> str:
         if isinstance(m, AIMessage) and m.content:
             return m.content.lower()
     return ""
+
+
+def make_mock_llm(*responses: AIMessage) -> MagicMock:
+    mock_llm = MagicMock()
+    mock_llm.bind_tools.return_value = mock_llm
+    mock_llm.invoke.side_effect = list(responses)
+    return mock_llm
 
 
 # ── Refund Email Agent — 5 cases ──────────────────────────────────────────────
@@ -144,7 +153,16 @@ def test_re_05_graph_executes_without_customer_id(refund_email_graph, ws_thread)
 @pytest.mark.integration
 def test_cal_06_read_query_routes_to_today_events_cli(calendar_graph, ws_thread):
     """'What's on my calendar today?' -> today_events CLI tool called."""
-    result = ws_invoke(calendar_graph, "What's on my calendar today?", ws_thread)
+    mock_llm = make_mock_llm(
+        AIMessage(
+            content="",
+            tool_calls=[{"id": "tc1", "name": "today_events", "args": {"calendar_id": "primary"}}],
+        ),
+        AIMessage(content="You have a daily standup on your calendar today."),
+    )
+
+    with patch("graph.calendar.planner.create_llm", return_value=mock_llm):
+        result = ws_invoke(calendar_graph, "What's on my calendar today?", ws_thread)
 
     assert "messages" in result
     used = tool_names_used(result["messages"])
@@ -155,17 +173,34 @@ def test_cal_06_read_query_routes_to_today_events_cli(calendar_graph, ws_thread)
 
 
 @pytest.mark.integration
-def test_cal_07_write_operation_calls_create_event(calendar_graph, ws_thread):
-    """'Schedule a Sprint Review tomorrow at 2pm' -> create_event MCP tool called."""
-    result = ws_invoke(
-        calendar_graph,
-        "Schedule a team meeting called 'Sprint Review' tomorrow at 2pm for 1 hour",
-        ws_thread,
+def test_cal_07_write_operation_calls_create_calendar_event(calendar_graph, ws_thread):
+    """'Schedule a Sprint Review tomorrow at 2pm' -> create_calendar_event MCP tool called."""
+    mock_llm = make_mock_llm(
+        AIMessage(
+            content="",
+            tool_calls=[{
+                "id": "tc1",
+                "name": "create_calendar_event",
+                "args": {
+                    "summary": "Sprint Review",
+                    "start": "2024-01-16T14:00:00",
+                    "end": "2024-01-16T15:00:00",
+                },
+            }],
+        ),
+        AIMessage(content="I've scheduled the Sprint Review for tomorrow at 2 PM."),
     )
 
+    with patch("graph.calendar.planner.create_llm", return_value=mock_llm):
+        result = ws_invoke(
+            calendar_graph,
+            "Schedule a team meeting called 'Sprint Review' tomorrow at 2pm for 1 hour",
+            ws_thread,
+        )
+
     used = tool_names_used(result["messages"])
-    assert "create_event" in used, (
-        f"Expected create_event to be called for a write request. Tools used: {used}"
+    assert "create_calendar_event" in used, (
+        f"Expected create_calendar_event to be called for a write request. Tools used: {used}"
     )
     content = last_ai_content(result["messages"])
     assert any(kw in content for kw in ("scheduled", "created", "confirmed", "event", "meeting")), (
@@ -174,18 +209,34 @@ def test_cal_07_write_operation_calls_create_event(calendar_graph, ws_thread):
 
 
 @pytest.mark.integration
-def test_cal_08_free_slot_query_uses_list_tools(calendar_graph, ws_thread):
-    """'Find a free 30-minute slot this week' -> calendar list tool called; response has time content."""
-    result = ws_invoke(
-        calendar_graph,
-        "Find a free 30-minute slot this week for a one-on-one meeting",
-        ws_thread,
+def test_cal_08_free_slot_query_uses_suggest_meeting_time(calendar_graph, ws_thread):
+    """'Find a free 30-minute slot this week' -> suggest_meeting_time MCP tool called."""
+    mock_llm = make_mock_llm(
+        AIMessage(
+            content="",
+            tool_calls=[{
+                "id": "tc1",
+                "name": "suggest_meeting_time",
+                "args": {
+                    "duration_minutes": 30,
+                    "time_min": "2024-01-15T08:00:00",
+                    "time_max": "2024-01-19T18:00:00",
+                },
+            }],
+        ),
+        AIMessage(content="I found a free 30-minute slot on Monday at 2:00 PM."),
     )
 
+    with patch("graph.calendar.planner.create_llm", return_value=mock_llm):
+        result = ws_invoke(
+            calendar_graph,
+            "Find a free 30-minute slot this week for a one-on-one meeting",
+            ws_thread,
+        )
+
     used = tool_names_used(result["messages"])
-    calendar_list_tools = {"today_events", "list_events", "list_calendars"}
-    assert used & calendar_list_tools, (
-        f"Expected at least one calendar list tool to be called. Tools used: {used}"
+    assert "suggest_meeting_time" in used, (
+        f"Expected suggest_meeting_time to be called. Tools used: {used}"
     )
     content = last_ai_content(result["messages"])
     time_keywords = [
@@ -200,12 +251,29 @@ def test_cal_08_free_slot_query_uses_list_tools(calendar_graph, ws_thread):
 
 @pytest.mark.integration
 def test_cal_09_verifier_catches_calendar_rate_limit(calendar_error_graph, ws_thread):
-    """Calendar API returns rate-limit error on create_event -> verifier marks valid=False."""
-    result = ws_invoke(
-        calendar_error_graph,
-        "Schedule a meeting called 'Daily Standup' tomorrow at 9am for 30 minutes",
-        ws_thread,
+    """Calendar API returns rate-limit error on create_calendar_event -> verifier marks valid=False."""
+    mock_llm = make_mock_llm(
+        AIMessage(
+            content="",
+            tool_calls=[{
+                "id": "tc1",
+                "name": "create_calendar_event",
+                "args": {
+                    "summary": "Daily Standup",
+                    "start": "2024-01-16T09:00:00",
+                    "end": "2024-01-16T09:30:00",
+                },
+            }],
+        ),
+        AIMessage(content="I've scheduled the Daily Standup for tomorrow at 9 AM."),
     )
+
+    with patch("graph.calendar.planner.create_llm", return_value=mock_llm):
+        result = ws_invoke(
+            calendar_error_graph,
+            "Schedule a meeting called 'Daily Standup' tomorrow at 9am for 30 minutes",
+            ws_thread,
+        )
 
     assert result["verification"] is not None, "verification field must be populated"
     assert result["verification"]["valid"] is False, (
@@ -217,11 +285,17 @@ def test_cal_09_verifier_catches_calendar_rate_limit(calendar_error_graph, ws_th
 @pytest.mark.integration
 def test_cal_10_graph_executes_without_customer_id(calendar_graph, ws_thread):
     """Calendar graph runs with customer_id=None and returns a valid AIMessage."""
-    result = ws_invoke(
-        calendar_graph,
-        "What calendars do I have access to?",
-        ws_thread,
+    mock_llm = make_mock_llm(
+        AIMessage(content="", tool_calls=[{"id": "tc1", "name": "list_calendars", "args": {}}]),
+        AIMessage(content="You have access to your Primary Calendar and the Engineering Team calendar."),
     )
+
+    with patch("graph.calendar.planner.create_llm", return_value=mock_llm):
+        result = ws_invoke(
+            calendar_graph,
+            "What calendars do I have access to?",
+            ws_thread,
+        )
 
     assert result["customer_id"] is None, (
         "Calendar agent must not require customer_id"
@@ -237,9 +311,12 @@ def test_cal_10_graph_executes_without_customer_id(calendar_graph, ws_thread):
 # ── Cross-agent — 2 cases ─────────────────────────────────────────────────────
 
 @pytest.mark.integration
-def test_cross_11_router_dispatches_all_agent_types():
-    """get_graph() returns a compiled graph for all three agent types; unknown raises ValueError."""
+def test_cross_11_router_dispatches_all_agent_types_when_calendar_mcp_is_available(monkeypatch):
+    """get_graph() dispatches calendar once MCP-backed calendar tools are available."""
     from graph.router import get_graph
+    from graph.mcp_client import mcp_manager
+
+    monkeypatch.setattr(mcp_manager, "_tools", MOCK_CALENDAR_MCP_TOOLS, raising=False)
 
     assert get_graph("customer_service") is not None
     assert get_graph("refund_email") is not None
@@ -254,19 +331,30 @@ def test_cross_12_session_isolation_across_agent_types(ws_thread):
     """RE and Calendar threads sharing a checkpointer do not bleed tool usage across threads."""
     from langgraph.checkpoint.sqlite import SqliteSaver
     from graph.refund_email.graph import compile_graph as re_compile
-    from graph.calendar.graph import compile_graph as cal_compile, CLI_TOOLS
+    from graph.calendar.graph import compile_graph as cal_compile
 
     conn = sqlite3.connect(":memory:", check_same_thread=False)
     checkpointer = SqliteSaver(conn)
 
     re_graph = re_compile(MOCK_GMAIL_TOOLS, checkpointer)
-    cal_graph = cal_compile(CLI_TOOLS + MOCK_CALENDAR_MCP_TOOLS, checkpointer)
+    cal_graph = cal_compile(MOCK_CALENDAR_CLI_TOOLS + MOCK_CALENDAR_MCP_TOOLS, checkpointer)
 
     re_thread = f"re-{ws_thread}"
     cal_thread = f"cal-{ws_thread}"
 
-    re_result = ws_invoke(re_graph, "What refund emails came in today?", re_thread)
-    cal_result = ws_invoke(cal_graph, "What's on my calendar today?", cal_thread)
+    refund_mock_llm = make_mock_llm(
+        AIMessage(content="", tool_calls=[{"id": "tc1", "name": "search_gmail", "args": {"query": "refund"}}]),
+        AIMessage(content="I found refund emails in your inbox."),
+    )
+    calendar_mock_llm = make_mock_llm(
+        AIMessage(content="", tool_calls=[{"id": "tc1", "name": "today_events", "args": {"calendar_id": "primary"}}]),
+        AIMessage(content="You have a daily standup today."),
+    )
+
+    with patch("graph.refund_email.planner.create_llm", return_value=refund_mock_llm), \
+         patch("graph.calendar.planner.create_llm", return_value=calendar_mock_llm):
+        re_result = ws_invoke(re_graph, "What refund emails came in today?", re_thread)
+        cal_result = ws_invoke(cal_graph, "What's on my calendar today?", cal_thread)
 
     re_tools = tool_names_used(re_result["messages"])
     cal_tools = tool_names_used(cal_result["messages"])

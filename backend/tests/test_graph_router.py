@@ -101,13 +101,13 @@ def test_get_graph_calendar_includes_cli_and_filtered_mcp_tools(monkeypatch):
     import graph.calendar.graph as calendar_graph
 
     @tool
-    def create_event(summary: str) -> str:
+    def create_calendar_event(summary: str) -> str:
         """Create a calendar event."""
         return "ok"
 
     from graph.mcp_client import mcp_manager
 
-    monkeypatch.setattr(mcp_manager, "_tools", [create_event], raising=False)
+    monkeypatch.setattr(mcp_manager, "_tools", [create_calendar_event], raising=False)
 
     captured: dict = {}
     original_compile = calendar_graph.compile_graph
@@ -123,4 +123,18 @@ def test_get_graph_calendar_includes_cli_and_filtered_mcp_tools(monkeypatch):
 
     tool_names = [tool.name for tool in captured["tools"]]
     assert "today_events" in tool_names
-    assert "create_event" in tool_names
+    assert "create_calendar_event" in tool_names
+
+
+def test_get_graph_calendar_raises_when_mcp_tools_unavailable(monkeypatch):
+    import importlib
+    from graph.mcp_client import mcp_manager
+
+    monkeypatch.setattr(mcp_manager, "_tools", [], raising=False)
+
+    router = importlib.import_module("graph.router")
+    router._cal_graph = None
+    router._cal_conn = None
+
+    with pytest.raises(RuntimeError, match="Calendar MCP tools are not available"):
+        router.get_graph("calendar")

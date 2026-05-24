@@ -56,7 +56,13 @@ def test_system_prompt_mentions_key_calendar_operations():
 
     prompt = build_system_prompt()
 
-    for keyword in ("today_events", "list_events", "create_event", "update_event", "delete_event"):
+    for keyword in (
+        "today_events",
+        "list_events",
+        "create_calendar_event",
+        "update_calendar_event",
+        "delete_calendar_event",
+    ):
         assert keyword in prompt, f"System prompt missing operation: {keyword}"
 
 
@@ -71,12 +77,12 @@ def test_router_get_graph_dispatches_calendar():
     router_module._cal_conn = None
 
     @tool
-    def create_event(summary: str) -> str:
+    def create_calendar_event(summary: str) -> str:
         """Create a calendar event."""
         return "ok"
 
     with patch.object(router_module, "mcp_manager") as mock_mgr:
-        mock_mgr.get_tools.return_value = [create_event]
+        mock_mgr.get_tools.return_value = [create_calendar_event]
         g = router_module.get_graph("calendar")
 
     assert g is not None
@@ -94,7 +100,7 @@ def test_get_async_graph_merges_cli_and_mcp_tools():
     cal_module._async_checkpointer_cm = None
 
     @tool
-    def create_event(summary: str) -> str:
+    def create_calendar_event(summary: str) -> str:
         """Create a calendar event."""
         return "ok"
 
@@ -107,8 +113,8 @@ def test_get_async_graph_merges_cli_and_mcp_tools():
 
     async def run():
         with patch.object(cal_module, "mcp_manager") as mock_mgr, \
-             patch.object(cal_module, "compile_graph", side_effect=capturing_compile):
-            mock_mgr.get_tools.return_value = [create_event]
+            patch.object(cal_module, "compile_graph", side_effect=capturing_compile):
+            mock_mgr.get_tools.return_value = [create_calendar_event]
             g = await cal_module.get_async_graph()
             return g, mock_mgr.get_tools.call_args
 
@@ -116,7 +122,7 @@ def test_get_async_graph_merges_cli_and_mcp_tools():
     assert graph_obj is not None
     assert call_args[0][0] == "calendar"
     tool_names = [t.name for t in captured["tools"]]
-    assert "create_event" in tool_names
+    assert "create_calendar_event" in tool_names
     assert "today_events" in tool_names
 
 
@@ -132,13 +138,13 @@ def test_get_async_graph_returns_same_instance_on_repeated_calls():
     cal_module._async_checkpointer_cm = None
 
     @tool
-    def create_event(summary: str) -> str:
+    def create_calendar_event(summary: str) -> str:
         """Create a calendar event."""
         return "ok"
 
     async def run():
         with patch.object(cal_module, "mcp_manager") as mock_mgr:
-            mock_mgr.get_tools.return_value = [create_event]
+            mock_mgr.get_tools.return_value = [create_calendar_event]
             g1 = await cal_module.get_async_graph()
             g2 = await cal_module.get_async_graph()
             return g1, g2
@@ -154,7 +160,7 @@ def test_system_prompt_mentions_full_mcp_calendar_surface():
 
     prompt = build_system_prompt()
 
-    for keyword in ("suggest_meeting", "rsvp"):
+    for keyword in ("suggest_meeting_time", "respond_to_calendar_event"):
         assert keyword in prompt.lower(), f"System prompt missing MCP calendar tool: {keyword}"
 
 
@@ -193,7 +199,7 @@ def test_read_query_routes_through_cli_list_events_tool():
         return '[{"id": "evt1", "summary": "Team standup", "start": "2024-01-15T09:00:00"}]'
 
     @tool
-    def create_event(summary: str, start: str, end: str) -> str:
+    def create_calendar_event(summary: str, start: str, end: str) -> str:
         """Create a new calendar event."""
         return '{"id": "new_evt"}'
 
@@ -214,7 +220,7 @@ def test_read_query_routes_through_cli_list_events_tool():
     mock_llm.invoke.side_effect = fake_invoke
 
     conn = sqlite3.connect(":memory:", check_same_thread=False)
-    g = compile_graph([list_events, create_event], SqliteSaver(conn))
+    g = compile_graph([list_events, create_calendar_event], SqliteSaver(conn))
 
     with patch("graph.calendar.planner.create_llm", return_value=mock_llm):
         result = g.invoke(
@@ -234,9 +240,9 @@ def test_read_query_routes_through_cli_list_events_tool():
     assert len(last.content) > 0
 
 
-# ── Cycle 11: behavioral — write request routes through MCP create_event ──────
+# ── Cycle 11: behavioral — write request routes through MCP create_calendar_event
 
-def test_write_request_routes_through_mcp_create_event_tool():
+def test_write_request_routes_through_mcp_create_calendar_event_tool():
     import sqlite3
     from unittest.mock import MagicMock, patch
     from langchain_core.messages import HumanMessage, AIMessage
@@ -250,7 +256,7 @@ def test_write_request_routes_through_mcp_create_event_tool():
         return "[]"
 
     @tool
-    def create_event(summary: str, start: str, end: str) -> str:
+    def create_calendar_event(summary: str, start: str, end: str) -> str:
         """Create a new calendar event."""
         return '{"id": "new_evt", "summary": "Team lunch", "start": "2024-01-19T12:00:00"}'
 
@@ -261,7 +267,7 @@ def test_write_request_routes_through_mcp_create_event_tool():
         if call_count[0] == 1:
             return AIMessage(
                 content="",
-                tool_calls=[{"id": "tc1", "name": "create_event",
+                tool_calls=[{"id": "tc1", "name": "create_calendar_event",
                              "args": {"summary": "Team lunch",
                                       "start": "2024-01-19T12:00:00",
                                       "end": "2024-01-19T13:00:00"}}],
@@ -273,7 +279,7 @@ def test_write_request_routes_through_mcp_create_event_tool():
     mock_llm.invoke.side_effect = fake_invoke
 
     conn = sqlite3.connect(":memory:", check_same_thread=False)
-    g = compile_graph([today_events, create_event], SqliteSaver(conn))
+    g = compile_graph([today_events, create_calendar_event], SqliteSaver(conn))
 
     with patch("graph.calendar.planner.create_llm", return_value=mock_llm):
         result = g.invoke(
@@ -288,15 +294,17 @@ def test_write_request_routes_through_mcp_create_event_tool():
         if hasattr(msg, "tool_calls") and msg.tool_calls
         for tc in msg.tool_calls
     ]
-    assert "create_event" in tool_call_names, "Write request should route through MCP create_event"
+    assert "create_calendar_event" in tool_call_names, (
+        "Write request should route through MCP create_calendar_event"
+    )
     last = result["messages"][-1]
     assert isinstance(last, AIMessage)
     assert len(last.content) > 0
 
 
-# ── Cycle 12: behavioral — free-slot query returns non-empty AI response ──────
+# ── Cycle 12: behavioral — free-slot query uses suggest_meeting_time MCP tool
 
-def test_free_slot_query_returns_nonempty_ai_response():
+def test_free_slot_query_routes_through_suggest_meeting_time_tool():
     import sqlite3
     from unittest.mock import MagicMock, patch
     from langchain_core.messages import HumanMessage, AIMessage
@@ -305,7 +313,12 @@ def test_free_slot_query_returns_nonempty_ai_response():
     from graph.calendar.graph import compile_graph
 
     @tool
-    def suggest_meeting_times(duration_minutes: int, time_min: str, time_max: str) -> str:
+    def list_events(time_min: str, time_max: str) -> str:
+        """List events in a time range."""
+        return "[]"
+
+    @tool
+    def suggest_meeting_time(duration_minutes: int, time_min: str, time_max: str) -> str:
         """Suggest available meeting time slots."""
         return '[{"start": "2024-01-15T14:00:00", "end": "2024-01-15T14:30:00"}]'
 
@@ -316,7 +329,7 @@ def test_free_slot_query_returns_nonempty_ai_response():
         if call_count[0] == 1:
             return AIMessage(
                 content="",
-                tool_calls=[{"id": "tc1", "name": "suggest_meeting_times",
+                tool_calls=[{"id": "tc1", "name": "suggest_meeting_time",
                              "args": {"duration_minutes": 30,
                                       "time_min": "2024-01-15T08:00:00",
                                       "time_max": "2024-01-19T18:00:00"}}],
@@ -328,7 +341,7 @@ def test_free_slot_query_returns_nonempty_ai_response():
     mock_llm.invoke.side_effect = fake_invoke
 
     conn = sqlite3.connect(":memory:", check_same_thread=False)
-    g = compile_graph([suggest_meeting_times], SqliteSaver(conn))
+    g = compile_graph([list_events, suggest_meeting_time], SqliteSaver(conn))
 
     with patch("graph.calendar.planner.create_llm", return_value=mock_llm):
         result = g.invoke(
@@ -337,6 +350,15 @@ def test_free_slot_query_returns_nonempty_ai_response():
             config={"configurable": {"thread_id": "cal-freeslot-test-1"}},
         )
 
+    tool_call_names = [
+        tc["name"]
+        for msg in result["messages"]
+        if hasattr(msg, "tool_calls") and msg.tool_calls
+        for tc in msg.tool_calls
+    ]
+    assert "suggest_meeting_time" in tool_call_names, (
+        "Free-slot request should route through MCP suggest_meeting_time"
+    )
     last = result["messages"][-1]
     assert isinstance(last, AIMessage)
     assert len(last.content) > 0
@@ -353,7 +375,7 @@ def test_verifier_marks_invalid_on_failed_calendar_tool_call():
     from graph.calendar.graph import compile_graph
 
     @tool
-    def create_event(summary: str, start: str, end: str) -> str:
+    def create_calendar_event(summary: str, start: str, end: str) -> str:
         """Create a new calendar event."""
         return "Permission denied: insufficient OAuth scope for Calendar write access"
 
@@ -364,7 +386,7 @@ def test_verifier_marks_invalid_on_failed_calendar_tool_call():
         if call_count[0] == 1:
             return AIMessage(
                 content="",
-                tool_calls=[{"id": "tc1", "name": "create_event",
+                tool_calls=[{"id": "tc1", "name": "create_calendar_event",
                              "args": {"summary": "Team lunch",
                                       "start": "2024-01-19T12:00:00",
                                       "end": "2024-01-19T13:00:00"}}],
@@ -376,7 +398,7 @@ def test_verifier_marks_invalid_on_failed_calendar_tool_call():
     mock_llm.invoke.side_effect = fake_invoke
 
     conn = sqlite3.connect(":memory:", check_same_thread=False)
-    g = compile_graph([create_event], SqliteSaver(conn))
+    g = compile_graph([create_calendar_event], SqliteSaver(conn))
 
     with patch("graph.calendar.planner.create_llm", return_value=mock_llm):
         result = g.invoke(

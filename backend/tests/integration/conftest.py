@@ -164,21 +164,84 @@ def _search_gmail_permission_denied(query: str) -> str:
 
 
 @tool
-def create_event(summary: str, start: str, end: str) -> str:
+def create_calendar_event(summary: str, start: str, end: str) -> str:
     """Create a new Google Calendar event."""
     return json.dumps({"id": "evt_abc123", "summary": summary, "start": start, "end": end, "status": "confirmed"})
 
 
-@tool("create_event")
-def _create_event_rate_limited(summary: str, start: str, end: str) -> str:
+@tool("create_calendar_event")
+def _create_calendar_event_rate_limited(summary: str, start: str, end: str) -> str:
     """Create a new Google Calendar event."""
     return json.dumps({"error": "rate limit exceeded: Calendar API write quota exhausted"})
 
 
 MOCK_GMAIL_TOOLS = [search_gmail, get_message, send_reply]
 MOCK_GMAIL_ERROR_TOOLS = [_search_gmail_permission_denied]
-MOCK_CALENDAR_MCP_TOOLS = [create_event]
-MOCK_CALENDAR_ERROR_MCP_TOOLS = [_create_event_rate_limited]
+
+
+@tool
+def today_events(calendar_id: str = "primary") -> str:
+    """List today's calendar events."""
+    return json.dumps([
+        {"id": "evt_today_1", "summary": "Daily standup", "calendar_id": calendar_id, "start": "2024-01-15T09:00:00"},
+    ])
+
+
+@tool
+def list_events(
+    time_min: str,
+    time_max: str | None = None,
+    max_results: int = 10,
+    calendar_id: str = "primary",
+) -> str:
+    """List calendar events in a time range."""
+    return json.dumps([
+        {
+            "id": "evt_range_1",
+            "summary": "Sprint review",
+            "calendar_id": calendar_id,
+            "time_min": time_min,
+            "time_max": time_max,
+            "max_results": max_results,
+        }
+    ])
+
+
+@tool
+def list_calendars() -> str:
+    """List available calendars."""
+    return json.dumps([
+        {"id": "primary", "summary": "Primary Calendar"},
+        {"id": "team", "summary": "Engineering Team"},
+    ])
+
+
+@tool
+def get_event(event_id: str, calendar_id: str = "primary") -> str:
+    """Get full details for a calendar event."""
+    return json.dumps({
+        "id": event_id,
+        "calendar_id": calendar_id,
+        "summary": "Sprint review",
+        "start": "2024-01-16T14:00:00",
+        "end": "2024-01-16T15:00:00",
+    })
+
+
+@tool
+def tool_list() -> str:
+    """List available workspace CLI tools."""
+    return json.dumps([
+        "today_events",
+        "list_events",
+        "list_calendars",
+        "get_event",
+    ])
+
+
+MOCK_CALENDAR_CLI_TOOLS = [today_events, list_events, list_calendars, get_event, tool_list]
+MOCK_CALENDAR_MCP_TOOLS = [create_calendar_event]
+MOCK_CALENDAR_ERROR_MCP_TOOLS = [_create_calendar_event_rate_limited]
 
 
 # ── Workspace fixtures ────────────────────────────────────────────────────────
@@ -207,15 +270,15 @@ def refund_email_error_graph():
 
 @pytest.fixture
 def calendar_graph():
-    """Calendar graph compiled with real CLI tools + mock create_event MCP tool."""
-    from graph.calendar.graph import compile_graph, CLI_TOOLS
+    """Calendar graph compiled with mock CLI tools + mock create_calendar_event MCP tool."""
+    from graph.calendar.graph import compile_graph
     conn = sqlite3.connect(":memory:", check_same_thread=False)
-    return compile_graph(CLI_TOOLS + MOCK_CALENDAR_MCP_TOOLS, SqliteSaver(conn))
+    return compile_graph(MOCK_CALENDAR_CLI_TOOLS + MOCK_CALENDAR_MCP_TOOLS, SqliteSaver(conn))
 
 
 @pytest.fixture
 def calendar_error_graph():
-    """Calendar graph where create_event always returns a rate-limit error."""
-    from graph.calendar.graph import compile_graph, CLI_TOOLS
+    """Calendar graph where create_calendar_event always returns a rate-limit error."""
+    from graph.calendar.graph import compile_graph
     conn = sqlite3.connect(":memory:", check_same_thread=False)
-    return compile_graph(CLI_TOOLS + MOCK_CALENDAR_ERROR_MCP_TOOLS, SqliteSaver(conn))
+    return compile_graph(MOCK_CALENDAR_CLI_TOOLS + MOCK_CALENDAR_ERROR_MCP_TOOLS, SqliteSaver(conn))
