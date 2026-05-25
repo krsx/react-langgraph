@@ -1,9 +1,8 @@
 import os
 from typing import Any
 
-_GMAIL_PREFIXES = ("gmail", "search_gmail", "get_message", "send_message", "send_reply", "list_labels")
-_CALENDAR_PREFIXES = ("calendar", "create_event", "update_event", "delete_event", "suggest_meeting", "rsvp",
-                      "list_calendar", "get_calendar")
+_GMAIL_PREFIXES = ("gmail", "message", "send_reply", "list_labels", "label")
+_CALENDAR_PREFIXES = ("calendar", "event", "schedule", "meeting", "rsvp", "today_event", "slot")
 
 
 def _is_gmail_tool(tool: Any) -> bool:

@@ -48,13 +48,21 @@ async def get_async_graph():
     global _async_checkpointer_cm, _async_graph
 
     if _async_graph is None:
+        import os
         mcp_tools = mcp_manager.get_tools("calendar")
         if not mcp_tools:
             raise RuntimeError(
                 "Calendar MCP tools are not available. "
                 "Ensure the workspace MCP service is running before accessing the calendar graph."
             )
-        tools = CLI_TOOLS + mcp_tools
+        # When using an external MCP server (WORKSPACE_MCP_URL set), that server provides
+        # all tools including read-only ones. CLI tools run workspace-cli as a subprocess
+        # inside the container which has no credentials, so skip them in that mode.
+        if os.environ.get("WORKSPACE_MCP_URL"):
+            tools = mcp_tools
+        else:
+            cli_names = {t.name for t in CLI_TOOLS}
+            tools = CLI_TOOLS + [t for t in mcp_tools if t.name not in cli_names]
 
         _async_checkpointer_cm = AsyncSqliteSaver.from_conn_string(CHECKPOINT_DB_PATH)
         checkpointer = await _async_checkpointer_cm.__aenter__()
