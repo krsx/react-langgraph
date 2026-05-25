@@ -116,7 +116,81 @@ def test_env_example_documents_workspace_mcp_vars():
     assert "WORKSPACE_MCP_ARGS" in env_example
 
 
-def test_entrypoint_script_is_executable_and_has_oauth_gate():
+def test_env_example_workspace_mcp_args_is_bash_sourceable_and_has_no_serve_subcommand():
+    """
+    WORKSPACE_MCP_ARGS must be quoted in .env.example so that
+    `set -a && source .env && set +a` does not execute flags as shell commands.
+    'serve' is also not a valid workspace-mcp subcommand in the current version.
+    """
+    import re
+    import subprocess
+
+    env_example = (REPO_ROOT / ".env.example").read_text()
+    match = re.search(r'^WORKSPACE_MCP_ARGS=(.+)$', env_example, re.MULTILINE)
+    assert match, "WORKSPACE_MCP_ARGS not found in .env.example"
+
+    raw_value = match.group(1).strip().strip('"').strip("'")
+    first_token = raw_value.split()[0]
+    assert first_token.startswith("--"), (
+        f"WORKSPACE_MCP_ARGS must start with a flag (e.g. --single-user), "
+        f"got: '{first_token}'. 'serve' is not a valid workspace-mcp subcommand."
+    )
+
+    # Verify it sources cleanly under set -a (no flags treated as commands)
+    result = subprocess.run(
+        ["bash", "-c", f'set -a; echo \'WORKSPACE_MCP_ARGS={match.group(1)}\' > /tmp/_args_test.env; source /tmp/_args_test.env; set +a; echo "OK:$WORKSPACE_MCP_ARGS"'],
+        capture_output=True, text=True,
+    )
+    assert result.returncode == 0, f"source .env failed: {result.stderr}"
+    assert "OK:" in result.stdout
+
+
+def test_env_example_workspace_mcp_args_permissions_are_space_separated_service_level_pairs():
+    """
+    --permissions takes space-separated service:level pairs.
+    Comma-separated values like 'gmail:send,calendar' are invalid and cause a
+    runtime error: "Unknown level 'send,calendar' for service 'gmail'".
+    """
+    import re
+
+    GMAIL_LEVELS = {"readonly", "organize", "drafts", "send", "full"}
+    OTHER_LEVELS = {"readonly", "full"}
+
+    env_example = (REPO_ROOT / ".env.example").read_text()
+    match = re.search(r'^WORKSPACE_MCP_ARGS=(.+)$', env_example, re.MULTILINE)
+    assert match, "WORKSPACE_MCP_ARGS not found in .env.example"
+
+    raw_value = match.group(1).strip().strip('"').strip("'")
+    tokens = raw_value.split()
+
+    # Collect tokens that follow --permissions
+    perms: list[str] = []
+    capture = False
+    for token in tokens:
+        if token == "--permissions":
+            capture = True
+            continue
+        if capture:
+            if token.startswith("--"):
+                break
+            perms.append(token)
+
+    assert perms, "No values found after --permissions in WORKSPACE_MCP_ARGS"
+
+    for perm in perms:
+        assert "," not in perm, (
+            f"Permission '{perm}' contains a comma. Use space-separated pairs: "
+            f"e.g. '--permissions gmail:send calendar:full', not 'gmail:send,calendar'."
+        )
+        assert ":" in perm, f"Permission '{perm}' must be in service:level format"
+        service, level = perm.split(":", 1)
+        valid = GMAIL_LEVELS if service == "gmail" else OTHER_LEVELS
+        assert level in valid, (
+            f"Invalid level '{level}' for service '{service}'. Valid: {sorted(valid)}"
+        )
+
+
+def test_entrypoint_script_is_executable_and_has_credential_check():
     import os
     script = BACKEND_DIR / "entrypoint.sh"
 
@@ -124,7 +198,11 @@ def test_entrypoint_script_is_executable_and_has_oauth_gate():
     assert os.access(script, os.X_OK), "entrypoint.sh is not executable"
     body = script.read_text()
     assert body.startswith("#!/usr/bin/env bash")
-    assert "workspace-mcp auth" in body
+    # 'workspace-mcp auth' was removed in the current version; the entrypoint
+    # now checks for credentials and warns rather than running auth interactively.
+    assert "workspace-mcp auth" not in body
+    assert ".google_workspace_mcp" in body
+    assert "WARNING" in body
 
 
 def test_docker_compose_backend_mounts_token_cache_volume():

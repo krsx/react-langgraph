@@ -16,7 +16,8 @@ def _make_executable(path: Path, body: str) -> None:
 def _run_entrypoint(tmp_path: Path, prepare_cache) -> tuple[subprocess.CompletedProcess[str], str]:
     home_dir = tmp_path / "home"
     bin_dir = tmp_path / "bin"
-    cache_dir = home_dir / ".workspace-mcp"
+    # Current workspace-mcp stores credentials at ~/.google_workspace_mcp/credentials
+    cache_dir = home_dir / ".google_workspace_mcp" / "credentials"
     log_path = tmp_path / "invocations.log"
 
     home_dir.mkdir()
@@ -55,37 +56,53 @@ exit 0
     return result, log
 
 
-def test_entrypoint_runs_auth_when_cache_is_missing(tmp_path: Path):
+def test_entrypoint_warns_and_continues_when_cache_is_missing(tmp_path: Path):
     def prepare_cache(cache_dir: Path) -> None:
-        # Cache directory is intentionally absent.
         assert not cache_dir.exists()
 
     result, log = _run_entrypoint(tmp_path, prepare_cache)
 
     assert result.returncode == 0
-    assert "workspace-mcp:auth" in log
+    # workspace-mcp auth no longer exists — must NOT be invoked
+    assert "workspace-mcp:" not in log
     assert "app-cmd:" in log
+    assert "WARNING" in result.stdout
 
 
-def test_entrypoint_runs_auth_when_cache_contains_only_unrelated_file(tmp_path: Path):
+def test_entrypoint_warns_and_continues_when_cache_contains_only_unrelated_file(tmp_path: Path):
     def prepare_cache(cache_dir: Path) -> None:
-        cache_dir.mkdir()
+        cache_dir.mkdir(parents=True)
         (cache_dir / "README.txt").write_text("placeholder")
 
     result, log = _run_entrypoint(tmp_path, prepare_cache)
 
     assert result.returncode == 0
-    assert "workspace-mcp:auth" in log
+    assert "workspace-mcp:" not in log
     assert "app-cmd:" in log
+    assert "WARNING" in result.stdout
 
 
-def test_entrypoint_skips_auth_when_cache_contains_non_empty_token_artifact(tmp_path: Path):
+def test_entrypoint_skips_warning_when_cache_contains_token_pickle(tmp_path: Path):
     def prepare_cache(cache_dir: Path) -> None:
-        cache_dir.mkdir()
-        (cache_dir / "oauth_tokens.enc").write_text("encrypted-token-bytes")
+        cache_dir.mkdir(parents=True)
+        (cache_dir / "token.pickle").write_bytes(b"fake-pickle-bytes")
 
     result, log = _run_entrypoint(tmp_path, prepare_cache)
 
     assert result.returncode == 0
-    assert "workspace-mcp:auth" not in log
+    assert "workspace-mcp:" not in log
     assert "app-cmd:" in log
+    assert "WARNING" not in result.stdout
+
+
+def test_entrypoint_skips_warning_when_cache_contains_json_token(tmp_path: Path):
+    def prepare_cache(cache_dir: Path) -> None:
+        cache_dir.mkdir(parents=True)
+        (cache_dir / "credentials.json").write_text('{"token": "abc"}')
+
+    result, log = _run_entrypoint(tmp_path, prepare_cache)
+
+    assert result.returncode == 0
+    assert "workspace-mcp:" not in log
+    assert "app-cmd:" in log
+    assert "WARNING" not in result.stdout
