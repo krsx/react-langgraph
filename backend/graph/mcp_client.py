@@ -22,11 +22,19 @@ class McpClientManager:
         self._tools: list[Any] = []
 
     async def start(self) -> None:
+        from langchain_mcp_adapters.client import MultiServerMCPClient
+
+        url = os.environ.get("WORKSPACE_MCP_URL")
+        if url:
+            self._client = MultiServerMCPClient(
+                {"workspace": {"url": url, "transport": "streamable_http"}}
+            )
+            self._tools = await self._client.get_tools()
+            return
+
         command = os.environ.get("WORKSPACE_MCP_COMMAND")
         if not command:
             return
-
-        from langchain_mcp_adapters.client import MultiServerMCPClient
 
         args = os.environ.get("WORKSPACE_MCP_ARGS", "").split() if os.environ.get("WORKSPACE_MCP_ARGS") else []
         self._client = MultiServerMCPClient(

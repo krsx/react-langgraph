@@ -1,3 +1,4 @@
+import os
 from datetime import datetime
 
 from langchain_core.messages import SystemMessage
@@ -11,7 +12,9 @@ def build_system_prompt() -> str:
     local_now = datetime.now().astimezone()
     today = local_now.date().isoformat()
     timezone_name = local_now.tzname() or "local timezone"
-    return f"""You are a Calendar Agent. You help users query, schedule, and manage Google Calendar events.
+    user_email = os.environ.get("WORKSPACE_USER_EMAIL", "")
+    email_line = f"\nThe authenticated Google account is {user_email}. Always pass this exact email when tools require an email parameter.\n" if user_email else ""
+    return f"""You are a Calendar Agent.{email_line} You help users query, schedule, and manage Google Calendar events.
 
 Today is {today} in {timezone_name}.
 Resolve relative dates and ranges such as today, tomorrow, this week, next week, and next Friday yourself using that date context.

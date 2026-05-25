@@ -1,3 +1,5 @@
+import os
+
 from langchain_core.messages import SystemMessage
 from langchain_core.runnables import RunnableConfig
 
@@ -6,7 +8,9 @@ from llm_factory import create_llm
 
 
 def build_system_prompt() -> str:
-    return """You are a Refund Email Agent. You read, classify, and reply to customer refund and return emails in a Gmail inbox.
+    user_email = os.environ.get("WORKSPACE_USER_EMAIL", "")
+    email_line = f"\nThe authenticated Gmail account is {user_email}. Always pass this exact email when tools require an email parameter.\n" if user_email else ""
+    return f"""You are a Refund Email Agent. You read, classify, and reply to customer refund and return emails in a Gmail inbox.{email_line}
 
 ## Batch Workflow (use when asked to process all refund emails)
 Follow these steps in order, exactly once per batch command:
