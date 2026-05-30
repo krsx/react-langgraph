@@ -9,11 +9,17 @@ from langgraph.prebuilt import ToolNode, tools_condition
 from graph.shared.state import AgentState
 from graph.shared.verifier import verifier
 from graph.calendar.planner import make_planner
-from graph.calendar.cli_tools import today_events, list_events, list_calendars, get_event, tool_list
+from graph.calendar.cli_tools import (
+    today_events,
+    list_events,
+    list_calendars,
+    get_event,
+    tool_list,
+)
 from graph.mcp_client import mcp_manager
 
 CHECKPOINT_DB_PATH = "checkpoints_calendar.db"
-RECURSION_LIMIT = 10
+RECURSION_LIMIT = 50
 
 CLI_TOOLS = [today_events, list_events, list_calendars, get_event, tool_list]
 
@@ -49,6 +55,7 @@ async def get_async_graph():
 
     if _async_graph is None:
         import os
+
         mcp_tools = mcp_manager.get_tools("calendar")
         if not mcp_tools:
             raise RuntimeError(
