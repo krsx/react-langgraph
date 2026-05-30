@@ -20,7 +20,7 @@ from graph.shared.verifier import verifier
 from graph.customer_service.memory_update import memory_update
 
 CHECKPOINT_DB_PATH = "checkpoints.db"
-RECURSION_LIMIT = 10
+RECURSION_LIMIT = 50
 
 _TOOLS = [order_lookup, customer_profile, refund, complaint_logger, memory_tool]
 
