@@ -26,10 +26,8 @@ services:
       GOOGLE_OAUTH_CLIENT_ID: ${GOOGLE_OAUTH_CLIENT_ID:-}
       GOOGLE_OAUTH_CLIENT_SECRET: ${GOOGLE_OAUTH_CLIENT_SECRET:-}
       WORKSPACE_USER_EMAIL: ${WORKSPACE_USER_EMAIL:-}
-      WORKSPACE_MCP_URL: ${WORKSPACE_MCP_URL:-}
       WORKSPACE_MCP_COMMAND: ${WORKSPACE_MCP_COMMAND:-workspace-mcp}
       WORKSPACE_MCP_ARGS: ${WORKSPACE_MCP_ARGS:---single-user --tool-tier core --permissions gmail:send calendar:full}
-      WORKSPACE_MCP_CREDENTIALS_DIR: /app/.google_workspace_mcp/credentials
     volumes:
       - ./backend:/app
       - backend_venv:/app/.venv

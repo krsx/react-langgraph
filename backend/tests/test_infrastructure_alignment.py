@@ -107,6 +107,7 @@ def test_docker_compose_backend_has_workspace_mcp_env_vars():
 
     assert "WORKSPACE_MCP_COMMAND" in compose
     assert "WORKSPACE_MCP_ARGS" in compose
+    assert "WORKSPACE_MCP_URL" not in compose
 
 
 def test_env_example_documents_workspace_mcp_vars():
@@ -114,6 +115,7 @@ def test_env_example_documents_workspace_mcp_vars():
 
     assert "WORKSPACE_MCP_COMMAND" in env_example
     assert "WORKSPACE_MCP_ARGS" in env_example
+    assert "WORKSPACE_MCP_URL" not in env_example
 
 
 def test_env_example_workspace_mcp_args_is_bash_sourceable_and_has_no_serve_subcommand():
@@ -263,3 +265,20 @@ def test_env_example_workspace_mcp_args_has_full_config():
     assert "single-user" in env_example
     assert "tool-tier core" in env_example
     assert "gmail:send" in env_example
+
+
+def test_http_mode_scripts_are_deleted():
+    assert not (REPO_ROOT / "scripts" / "start-workspace-mcp.sh").exists()
+    assert not (REPO_ROOT / "scripts" / "test-workspace-mcp.sh").exists()
+
+
+def test_env_example_documents_oauth_setup():
+    env_example = (REPO_ROOT / ".env.example").read_text()
+    assert "One-Time OAuth Setup" in env_example
+    assert "~/.google_workspace_mcp/credentials" in env_example
+
+
+def test_mcp_client_has_no_http_code_path():
+    source = (BACKEND_DIR / "graph" / "mcp_client.py").read_text()
+    assert "WORKSPACE_MCP_URL" not in source
+    assert "streamable_http" not in source

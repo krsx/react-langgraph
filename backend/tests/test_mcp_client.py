@@ -47,6 +47,7 @@ def test_mcp_manager_start_skips_when_env_var_absent(monkeypatch):
     from graph.mcp_client import McpClientManager
 
     monkeypatch.delenv("WORKSPACE_MCP_COMMAND", raising=False)
+    monkeypatch.delenv("WORKSPACE_MCP_URL", raising=False)
 
     manager = McpClientManager()
     asyncio.run(manager.start())

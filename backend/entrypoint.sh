@@ -6,7 +6,7 @@ set -euo pipefail
 # (not ~/.workspace-mcp). The 'auth' subcommand was removed; authentication now
 # happens inline when the server handles its first request. We check here only to
 # give an early, actionable warning when the volume is unpopulated.
-CREDS_DIR="${WORKSPACE_MCP_CREDENTIALS_DIR:-${GOOGLE_MCP_CREDENTIALS_DIR:-${HOME}/.google_workspace_mcp/credentials}}"
+CREDS_DIR="${HOME}/.google_workspace_mcp/credentials"
 
 has_valid_credentials() {
     local dir="${1}"

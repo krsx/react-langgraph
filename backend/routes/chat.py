@@ -105,7 +105,7 @@ async def _event_stream(req: ChatRequest) -> AsyncGenerator[str, None]:
     thread_id = req.thread_id or str(uuid.uuid4())
     cfg = get_config()
     provider = req.provider or "openrouter"
-    model = cfg.OLLAMA_DEFAULT_MODEL if provider == "ollama" else cfg.DEFAULT_MODEL
+    model = req.model or (cfg.OLLAMA_DEFAULT_MODEL if provider == "ollama" else cfg.DEFAULT_MODEL)
 
     input_state = {
         "messages": [{"role": "human", "content": req.message}],
