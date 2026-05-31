@@ -297,8 +297,8 @@ function MemoryLayer2({ context }: { context: MemoryContextEntry[] }) {
           <KVRow key={i} label={entry.key} value={entry.value} />
         ) : (
           <div key={i} className="rounded-none bg-muted/50 px-3 py-2 font-mono text-xs">
-            <span className="font-semibold text-foreground/70">complaint</span>
-            <span className="ml-3 text-foreground">{entry.issue}</span>
+            <span className="shrink-0 font-semibold text-foreground/70">complaint</span>
+            <span className="ml-3 break-all text-foreground">{entry.issue}</span>
           </div>
         ),
       )}
@@ -328,9 +328,9 @@ function PlannerLayer2({
               <p className="font-semibold text-foreground/70">{tc.name}</p>
               <div className="mt-1.5 space-y-1">
                 {Object.entries(tc.args).map(([k, v]) => (
-                  <div key={k} className="flex gap-2">
+                  <div key={k} className="flex gap-2 min-w-0">
                     <span className="shrink-0 text-muted-foreground">{k}:</span>
-                    <span className="text-foreground">{formatValue(v)}</span>
+                    <span className="min-w-0 break-all text-foreground">{formatValue(v)}</span>
                   </div>
                 ))}
               </div>
@@ -345,7 +345,7 @@ function PlannerLayer2({
 function ToolLayer2({ results }: { results: JsonValue }) {
   if (results === null || typeof results !== "object" || Array.isArray(results)) {
     return (
-      <pre className="rounded-none bg-muted/50 p-3 font-mono text-xs text-foreground/80">
+      <pre className="overflow-x-auto rounded-none bg-muted/50 p-3 font-mono text-xs text-foreground/80">
         {JSON.stringify(results, null, 2)}
       </pre>
     );
@@ -378,7 +378,7 @@ function VerifierLayer2({
           ) : (
             <XCircle className="mt-0.5 size-3.5 shrink-0 text-destructive" />
           )}
-          <span className="text-foreground/80">{check}</span>
+          <span className="min-w-0 break-words text-foreground/80">{check}</span>
         </div>
       ))}
       {overrideMessage ? (
@@ -445,7 +445,7 @@ function TimelineStep({
         {/* Layer 2: verbose content */}
         {layer2Open && (
           <div className="mt-3 space-y-3 rounded-none border border-border/50 bg-card/50 p-3">
-            <div className="rounded-none bg-secondary px-3 py-2.5">
+            <div className="overflow-hidden rounded-none bg-secondary px-3 py-2.5">
               {step.kind === "memory_loaded" && <MemoryLayer2 context={step.context} />}
               {step.kind === "planner" && (
                 <PlannerLayer2 content={step.content} toolCalls={step.toolCalls} />
