@@ -31,8 +31,8 @@ services:
     volumes:
       - ./backend:/app
       - backend_venv:/app/.venv
-      - ~/.google_workspace_mcp/credentials:/app/.google_workspace_mcp/credentials
-      - workspace_mcp_tokens:/app/.google_workspace_mcp/tokens
+      - ~/.google_workspace_mcp/credentials:/root/.google_workspace_mcp/credentials
+      - workspace_mcp_tokens:/root/.google_workspace_mcp/tokens
     command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload --reload-dir /app
     ports:
       - "8000:8000"

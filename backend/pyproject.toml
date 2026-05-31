@@ -13,6 +13,7 @@ dependencies = [
     "mysql-connector-python",
     "python-dotenv",
     "langchain-mcp-adapters",
+    "workspace-mcp>=1.21.1",
 ]
 
 [dependency-groups]
