@@ -82,7 +82,7 @@ function MessageBubble({
 }) {
   if (role === "human") {
     return (
-      <div className="ml-auto max-w-[85%] rounded-none bg-primary px-3.5 py-2 text-sm text-primary-foreground shadow-sm">
+      <div className="ml-auto max-w-[85%] min-w-0 break-words rounded-none bg-primary px-3.5 py-2 text-sm text-primary-foreground shadow-sm">
         {content}
       </div>
     );
@@ -90,7 +90,7 @@ function MessageBubble({
 
   return (
     <div
-      className="prose prose-sm dark:prose-invert prose-code:text-red-500 prose-a:text-red-500 prose-strong:text-red-500 prose-em:text-red-500 max-w-[85%] self-start rounded-none bg-secondary px-3.5 py-2 text-sm text-secondary-foreground shadow-sm"
+      className="prose prose-sm dark:prose-invert prose-code:text-red-500 prose-a:text-red-500 prose-strong:text-red-500 prose-em:text-red-500 max-w-[85%] min-w-0 break-words self-start rounded-none bg-secondary px-3.5 py-2 text-sm text-secondary-foreground shadow-sm [&_*]:break-words [&_a]:break-all"
       data-streaming={isStreaming ? "true" : undefined}
     >
       <ReactMarkdown>{content}</ReactMarkdown>
