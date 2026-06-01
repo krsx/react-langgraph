@@ -1985,6 +1985,8 @@ version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
     { name = "fastapi" },
+    { name = "google-api-python-client" },
+    { name = "google-auth-oauthlib" },
     { name = "httpx" },
     { name = "langchain-mcp-adapters" },
     { name = "langchain-ollama" },
@@ -2005,6 +2007,8 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "fastapi" },
+    { name = "google-api-python-client" },
+    { name = "google-auth-oauthlib" },
     { name = "httpx" },
     { name = "langchain-mcp-adapters" },
     { name = "langchain-ollama" },
