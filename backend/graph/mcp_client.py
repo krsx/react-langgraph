@@ -4,7 +4,7 @@ import subprocess
 from typing import Any
 
 _GMAIL_PREFIXES = ("gmail", "message", "send_reply", "list_labels", "label")
-_CALENDAR_PREFIXES = ("calendar", "event", "schedule", "meeting", "rsvp", "today_event", "slot")
+_CALENDAR_PREFIXES = ("calendar", "event", "schedule", "meeting", "rsvp", "today_event", "slot", "freebusy", "free_busy", "query_free")
 
 _MCP_LOCAL_PORT = 8889
 _MCP_LOCAL_URL = f"http://localhost:{_MCP_LOCAL_PORT}/mcp"
@@ -46,11 +46,13 @@ class McpClientManager:
 
         # Start workspace-mcp as a local HTTP server so both langchain_mcp_adapters
         # and the workspace-cli subprocess can reach it via localhost.
+        # workspace-mcp reads USER_GOOGLE_EMAIL (not WORKSPACE_USER_EMAIL) to skip OAuth.
         server_env = {
             **os.environ,
             "WORKSPACE_MCP_HOST": "localhost",
             "WORKSPACE_MCP_PORT": str(_MCP_LOCAL_PORT),
             "OAUTHLIB_INSECURE_TRANSPORT": "1",
+            "USER_GOOGLE_EMAIL": os.environ.get("WORKSPACE_USER_EMAIL", ""),
         }
         self._server_proc = subprocess.Popen(
             [command, *base_args, "--transport", "streamable-http"],
