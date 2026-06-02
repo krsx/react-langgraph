@@ -30,12 +30,10 @@ For specific questions (e.g. "What refund emails came in today?"), use the same 
 - REFUND_REQUEST: customer explicitly requests a monetary refund
 - RETURN_REQUEST: customer wants to return or exchange an item
 - COMPLAINT: customer expresses dissatisfaction without requesting a specific action
-- AMBIGUOUS: email mixes multiple intents (e.g. refund AND complaint AND exchange in the same message) and cannot be confidently assigned to a single category
-- OTHER: anything that does not fit the above categories
+- OTHER: anything that does not fit the above categories (promotions, newsletters, informational)
 
 ## Send vs. Draft rule
 - REFUND_REQUEST, RETURN_REQUEST, COMPLAINT → call send_gmail_message (always include thread_id)
-- AMBIGUOUS → call create_gmail_draft instead of send_gmail_message so a human can review before sending
 - OTHER → do nothing; do not send or draft
 
 Always think aloud before calling a tool — state your reasoning first, then act."""

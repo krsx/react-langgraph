@@ -1,21 +1,27 @@
 #!/usr/bin/env python3
 """
-Seed test emails for Refund Email Agent test cases (Report 2 / test-cases-extend.md, Set A).
+Seed test emails for Refund Email Agent test cases (Testing_project_2.pdf §2).
 
 Inserts synthetic emails directly into the authenticated Gmail inbox using
 users.messages.insert — no SMTP required, arbitrary From headers allowed.
 
-Coverage:
-  A3  msg_refund_001    alice — REFUND_REQUEST (plain email)
-  A4  msg_return_001    bob   — RETURN_REQUEST (plain email)
-  A5  msg_complaint_001 carol — COMPLAINT      (plain email)
-  A6  msg_promo_001     promo — OTHER           (plain email)
-  A8  msg_ambiguous_001 dave  — AMBIGUOUS       (plain email → agent drafts, not sends)
-  A7  msg_thread_parent eve   — REFUND_REQUEST  (first message in thread)
-  A7  msg_thread_001    eve   — REFUND_REQUEST  (follow-up in same thread → tests in-thread reply)
-  A9                          — batch loop: alice + bob + carol + eve(thread child) = 4 actionable
-  A10                         — summary report: produced after batch completes (no extra seed)
-  A11 msg_thread_parent + msg_thread_001 together as one thread → get_gmail_thread returns both
+Dataset: 8 emails — 2 per category
+  A1  alice@customer.com   — REFUND_REQUEST
+  A1  frank@customer.com   — REFUND_REQUEST
+  A2  bob@customer.com     — RETURN_REQUEST
+  A2  grace@customer.com   — RETURN_REQUEST
+  A3  carol@customer.com   — COMPLAINT
+  A3  henry@customer.com   — COMPLAINT
+  A4  promo@newsletter.com — OTHER
+  A4  deals@offers.com     — OTHER
+
+Expected agent summary after processing:
+  REFUND_REQUEST : 2   (replies sent)
+  RETURN_REQUEST : 2   (replies sent)
+  COMPLAINT      : 2   (replies sent)
+  OTHER          : 2   (skipped — no reply)
+  Replies Sent   : 6
+  Skipped        : 2
 
 Usage:
     pip install google-api-python-client google-auth
@@ -28,16 +34,14 @@ import json
 import os
 import sys
 import uuid
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone
 from email.mime.text import MIMEText
 from pathlib import Path
 
 
-# ── Plain (single-message) seeds ──────────────────────────────────────────────
-
-FLAT_SEEDS = [
+SEEDS = [
+    # ── REFUND_REQUEST ─────────────────────────────────────────────────────────
     {
-        "id": "msg_refund_001",
         "from_addr": "alice@customer.com",
         "from_name": "Alice Customer",
         "subject": "I need a refund for my order",
@@ -49,10 +53,25 @@ FLAT_SEEDS = [
             "Thanks,\nAlice"
         ),
         "classification": "REFUND_REQUEST",
-        "covers": "A3, A7, A9",
+        "covers": "A1",
     },
     {
-        "id": "msg_return_001",
+        "from_addr": "frank@customer.com",
+        "from_name": "Frank Miller",
+        "subject": "Request refund for damaged item",
+        "body": (
+            "Hello,\n\n"
+            "I received order #54321 last week but the item arrived damaged.\n"
+            "The packaging was crushed and the product inside is broken.\n"
+            "I am requesting a full refund for this order.\n\n"
+            "Please advise on how to proceed.\n\n"
+            "Regards,\nFrank"
+        ),
+        "classification": "REFUND_REQUEST",
+        "covers": "A1",
+    },
+    # ── RETURN_REQUEST ─────────────────────────────────────────────────────────
+    {
         "from_addr": "bob@customer.com",
         "from_name": "Bob Shopper",
         "subject": "Return request for recent purchase",
@@ -64,10 +83,25 @@ FLAT_SEEDS = [
             "Best,\nBob"
         ),
         "classification": "RETURN_REQUEST",
-        "covers": "A4, A7, A9",
+        "covers": "A2",
     },
     {
-        "id": "msg_complaint_001",
+        "from_addr": "grace@customer.com",
+        "from_name": "Grace Lee",
+        "subject": "I want to return my order",
+        "body": (
+            "Hi,\n\n"
+            "I ordered a jacket (order #22222) but the colour is completely different "
+            "from what was shown on the website.\n"
+            "I would like to return it and receive a full refund or exchange.\n"
+            "Please let me know the return process.\n\n"
+            "Thank you,\nGrace"
+        ),
+        "classification": "RETURN_REQUEST",
+        "covers": "A2",
+    },
+    # ── COMPLAINT ──────────────────────────────────────────────────────────────
+    {
         "from_addr": "carol@customer.com",
         "from_name": "Carol Unhappy",
         "subject": "Terrible experience — still waiting",
@@ -79,10 +113,25 @@ FLAT_SEEDS = [
             "Carol"
         ),
         "classification": "COMPLAINT",
-        "covers": "A5, A7, A9",
+        "covers": "A3",
     },
     {
-        "id": "msg_promo_001",
+        "from_addr": "henry@customer.com",
+        "from_name": "Henry Walsh",
+        "subject": "Unacceptable delivery service",
+        "body": (
+            "Hello,\n\n"
+            "I am deeply dissatisfied with the delivery service for my order #33333.\n"
+            "The courier left the package in the rain without any notification and "
+            "the contents are now completely ruined.\n"
+            "This is totally unacceptable and I expect this to be addressed urgently.\n\n"
+            "Henry"
+        ),
+        "classification": "COMPLAINT",
+        "covers": "A3",
+    },
+    # ── OTHER ──────────────────────────────────────────────────────────────────
+    {
         "from_addr": "promo@newsletter.com",
         "from_name": "Newsletter Deals",
         "subject": "Exclusive deal just for you!",
@@ -94,75 +143,26 @@ FLAT_SEEDS = [
             "Unsubscribe: https://example.com/unsubscribe"
         ),
         "classification": "OTHER",
-        "covers": "A6",
+        "covers": "A4",
     },
     {
-        "id": "msg_ambiguous_001",
-        "from_addr": "dave@customer.com",
-        "from_name": "Dave Uncertain",
-        "subject": "Refund? Or maybe store credit?",
+        "from_addr": "deals@offers.com",
+        "from_name": "Weekly Offers",
+        "subject": "Your weekly offers inside",
         "body": (
-            "Hi there,\n\n"
-            "I'm not totally sure what I want — I was thinking about a refund for "
-            "order #11111, but actually store credit might work too if the refund "
-            "takes too long. Or maybe I should just exchange it for something else?\n"
-            "I'm also a bit annoyed at the delivery delay, so there's that too.\n"
-            "Can you help me figure out the best option?\n\n"
-            "Thanks,\nDave"
+            "Hello,\n\n"
+            "Your personalised weekly deals are ready!\n"
+            "Check out this week's top picks curated just for you.\n\n"
+            "View offers: https://example.com/weekly\n\n"
+            "To unsubscribe reply STOP."
         ),
-        "classification": "AMBIGUOUS",
-        "covers": "A8 (agent should create_gmail_draft, not send_gmail_message)",
+        "classification": "OTHER",
+        "covers": "A4",
     },
 ]
 
 
-# ── Thread seed — two messages that form one conversation ──────────────────────
-# Parent is inserted first; its thread_id is then used for the child.
-# Together they cover A7 (agent replies in-thread) and A11 (get_gmail_thread
-# returns the full conversation history).
-
-THREAD_SEED = {
-    "parent": {
-        "id": "msg_thread_parent",
-        "from_addr": "eve@customer.com",
-        "from_name": "Eve Returning",
-        "subject": "Refund for order #99999 — not received",
-        "body": (
-            "Hi,\n\n"
-            "I placed order #99999 on the 1st of this month and it still hasn't "
-            "arrived. The tracking page shows 'in transit' for the past 10 days "
-            "with no movement.\n"
-            "I would like to request a refund if the item cannot be delivered "
-            "within the next two business days.\n\n"
-            "Thanks,\nEve"
-        ),
-        "classification": "REFUND_REQUEST",
-        "covers": "A7 (parent message establishes thread), A11",
-    },
-    "child": {
-        "id": "msg_thread_001",
-        "from_addr": "eve@customer.com",
-        "from_name": "Eve Returning",
-        "subject": "Re: Refund for order #99999 — not received",
-        "body": (
-            "Hi,\n\n"
-            "Just following up on my earlier message. I still haven't heard back "
-            "about my refund request for order #99999. It has now been over a week "
-            "and I need this resolved before the end of the month.\n\n"
-            "Please provide an update at your earliest convenience.\n\n"
-            "Thanks,\nEve"
-        ),
-        "classification": "REFUND_REQUEST",
-        "covers": "A7 (agent must reply with parent thread_id), A9, A11",
-    },
-}
-
-
 # ── Helpers ────────────────────────────────────────────────────────────────────
-
-def _make_message_id(domain: str = "seed.test") -> str:
-    return f"<{uuid.uuid4().hex}@{domain}>"
-
 
 def _format_date(dt: datetime) -> str:
     return dt.strftime("%a, %d %b %Y %H:%M:%S +0000")
@@ -174,14 +174,9 @@ def build_raw_message(
     to_addr: str,
     subject: str,
     body: str,
-    message_id: str | None = None,
-    in_reply_to: str | None = None,
-    references: str | None = None,
     date: datetime | None = None,
-) -> tuple[str, str]:
-    """Return (raw_b64, message_id) for a single message."""
-    if message_id is None:
-        message_id = _make_message_id()
+) -> str:
+    """Return base64url-encoded raw RFC-2822 message."""
     if date is None:
         date = datetime.now(timezone.utc)
 
@@ -190,14 +185,9 @@ def build_raw_message(
     msg["To"] = to_addr
     msg["Subject"] = subject
     msg["Date"] = _format_date(date)
-    msg["Message-ID"] = message_id
-    if in_reply_to:
-        msg["In-Reply-To"] = in_reply_to
-    if references:
-        msg["References"] = references
+    msg["Message-ID"] = f"<{uuid.uuid4().hex}@seed.test>"
 
-    raw = base64.urlsafe_b64encode(msg.as_bytes()).decode()
-    return raw, message_id
+    return base64.urlsafe_b64encode(msg.as_bytes()).decode()
 
 
 def load_credentials(email: str):
@@ -224,71 +214,6 @@ def load_credentials(email: str):
     return creds
 
 
-# ── Insertion helpers ──────────────────────────────────────────────────────────
-
-def insert_flat(service, to_addr: str, seed: dict) -> str:
-    raw, _ = build_raw_message(
-        from_addr=seed["from_addr"],
-        from_name=seed["from_name"],
-        to_addr=to_addr,
-        subject=seed["subject"],
-        body=seed["body"],
-    )
-    result = service.users().messages().insert(
-        userId="me",
-        body={"raw": raw, "labelIds": ["INBOX", "UNREAD"]},
-    ).execute()
-    return result["id"]
-
-
-def insert_thread(service, to_addr: str, thread: dict) -> tuple[str, str, str]:
-    """Insert parent then child into the same thread.
-
-    Returns (parent_gmail_id, child_gmail_id, thread_id).
-    """
-    parent = thread["parent"]
-    child = thread["child"]
-
-    # Parent — establish the thread
-    parent_msg_id = _make_message_id()
-    parent_date = datetime.now(timezone.utc) - timedelta(days=3)
-    parent_raw, _ = build_raw_message(
-        from_addr=parent["from_addr"],
-        from_name=parent["from_name"],
-        to_addr=to_addr,
-        subject=parent["subject"],
-        body=parent["body"],
-        message_id=parent_msg_id,
-        date=parent_date,
-    )
-    parent_result = service.users().messages().insert(
-        userId="me",
-        body={"raw": parent_raw, "labelIds": ["INBOX", "UNREAD"]},
-    ).execute()
-    parent_gmail_id = parent_result["id"]
-    thread_id = parent_result["threadId"]
-
-    # Child — reply into the same thread
-    child_date = datetime.now(timezone.utc)
-    child_raw, _ = build_raw_message(
-        from_addr=child["from_addr"],
-        from_name=child["from_name"],
-        to_addr=to_addr,
-        subject=child["subject"],
-        body=child["body"],
-        in_reply_to=parent_msg_id,
-        references=parent_msg_id,
-        date=child_date,
-    )
-    child_result = service.users().messages().insert(
-        userId="me",
-        body={"raw": child_raw, "threadId": thread_id, "labelIds": ["INBOX", "UNREAD"]},
-    ).execute()
-    child_gmail_id = child_result["id"]
-
-    return parent_gmail_id, child_gmail_id, thread_id
-
-
 # ── Main ───────────────────────────────────────────────────────────────────────
 
 def main():
@@ -305,18 +230,12 @@ def main():
         print("ERROR: provide --email or set WORKSPACE_USER_EMAIL", file=sys.stderr)
         sys.exit(1)
 
-    total = len(FLAT_SEEDS) + 2  # 5 flat + 2 thread messages
-
     if args.dry_run:
-        print(f"DRY RUN — would insert {total} messages to {args.email}:\n")
-        print("  Flat emails (single-message):")
-        for s in FLAT_SEEDS:
-            print(f"    [{s['classification']:16s}]  {s['from_addr']:30s}  {s['subject']}")
-        print("\n  Thread emails (2-message conversation — covers A7 + A11):")
-        for key in ("parent", "child"):
-            m = THREAD_SEED[key]
-            print(f"    [{m['classification']:16s}]  {m['from_addr']:30s}  {m['subject']}")
-            print(f"       covers: {m['covers']}")
+        print(f"DRY RUN — would insert {len(SEEDS)} messages to {args.email}:\n")
+        for s in SEEDS:
+            print(f"  [{s['classification']:16s}]  {s['from_addr']:30s}  {s['subject']}")
+        print(f"\nTotal: {len(SEEDS)} emails")
+        print("Expected after agent run: 6 replies sent, 2 skipped (OTHER)")
         return
 
     try:
@@ -330,31 +249,32 @@ def main():
     creds = load_credentials(args.email)
     service = build("gmail", "v1", credentials=creds)
 
-    print(f"Inserting {total} seed messages into {args.email}...\n")
+    print(f"Inserting {len(SEEDS)} seed messages into {args.email}...\n")
 
-    # Insert flat emails
-    for seed in FLAT_SEEDS:
-        gid = insert_flat(service, args.email, seed)
-        print(f"  OK  {seed['id']:22s}  gmail_id={gid:20s}  [{seed['classification']}]")
+    counts: dict[str, int] = {}
+    for seed in SEEDS:
+        raw = build_raw_message(
+            from_addr=seed["from_addr"],
+            from_name=seed["from_name"],
+            to_addr=args.email,
+            subject=seed["subject"],
+            body=seed["body"],
+        )
+        result = service.users().messages().insert(
+            userId="me",
+            body={"raw": raw, "labelIds": ["INBOX", "UNREAD"]},
+        ).execute()
+        gid = result["id"]
+        counts[seed["classification"]] = counts.get(seed["classification"], 0) + 1
+        print(f"  OK  [{seed['classification']:16s}]  {seed['from_addr']:30s}  gmail_id={gid}")
 
-    # Insert threaded emails
-    print()
-    parent_gid, child_gid, thread_id = insert_thread(service, args.email, THREAD_SEED)
-    print(f"  OK  {THREAD_SEED['parent']['id']:22s}  gmail_id={parent_gid:20s}  [REFUND_REQUEST]  (thread parent, 3 days ago)")
-    print(f"  OK  {THREAD_SEED['child']['id']:22s}  gmail_id={child_gid:20s}  [REFUND_REQUEST]  (thread child,  threadId={thread_id})")
-
-    print(f"\nDone. {total} messages inserted as UNREAD in INBOX.")
-    print()
-    print("Test coverage:")
-    print("  A3  alice — REFUND_REQUEST classification")
-    print("  A4  bob   — RETURN_REQUEST classification")
-    print("  A5  carol — COMPLAINT classification")
-    print("  A6  promo — OTHER (agent must skip, no reply sent)")
-    print("  A7  eve thread child — agent reply must use thread_id above (not start new thread)")
-    print("  A8  dave  — AMBIGUOUS (agent must call create_gmail_draft, not send_gmail_message)")
-    print("  A9  alice + bob + carol + eve(child) = 4 actionable emails — multi-step ReAct loop")
-    print("  A10 auto mode summary — produced after A9 completes (no extra seed needed)")
-    print("  A11 eve thread — get_gmail_thread returns 2-message history + agent reply = 3 messages")
+    print(f"\nDone. {len(SEEDS)} messages inserted as UNREAD in INBOX.")
+    print("\nCategory breakdown:")
+    for cat, n in counts.items():
+        print(f"  {cat:16s}: {n}")
+    print("\nExpected agent summary:")
+    print("  Replies Sent : 6  (REFUND_REQUEST + RETURN_REQUEST + COMPLAINT)")
+    print("  Skipped      : 2  (OTHER — no reply sent)")
 
 
 if __name__ == "__main__":

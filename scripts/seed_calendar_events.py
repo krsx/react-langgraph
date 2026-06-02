@@ -1,25 +1,29 @@
 #!/usr/bin/env python3
 """
-Seed test calendar events for Calendar Agent test cases (test-cases-extend.md, Set B).
+Seed test calendar events for Calendar Agent test cases (Testing_project_2.pdf §1).
 
 Usage:
     pip install google-api-python-client google-auth
     python scripts/seed_calendar_events.py [--dry-run]
 
-Events created:
-  B1, B4  Team Standup         — today 09:00–09:30
-  B1, B7  Client Review        — today 14:00–15:00
-  B1      1:1 with Manager     — today 17:30–18:00
-  B2      Sprint Planning      — tomorrow 10:00–11:00
-  B9      Friday All-Hands     — this Friday 15:00–16:00  (RSVP event, imported with external organizer)
+Events created (Mon Jun 1 – Fri Jun 5, 2026):
+  Mon Jun 1  09:00–10:00  Team Standup
+  Mon Jun 1  14:00–15:00  Research Meeting
+  Tue Jun 2  10:00–11:00  Project Review
+  Tue Jun 2  15:00–16:00  Student Advising
+  Wed Jun 3  09:00–10:30  Faculty Meeting
+  Wed Jun 3  14:00–15:00  PhD Progress Review
+  Thu Jun 4  11:00–12:00  Industry Collaboration Meeting
+  Thu Jun 4  15:00–16:00  Lab Weekly Meeting
+  Fri Jun 5  09:00–10:00  Grant Proposal Discussion
+  Fri Jun 5  15:00–16:00  Research Seminar
 """
 
 import argparse
 import json
 import os
 import sys
-import uuid
-from datetime import date, datetime, timedelta, timezone
+from datetime import date, datetime, timedelta
 from pathlib import Path
 
 
@@ -33,11 +37,6 @@ def _get_local_offset_str() -> str:
 
 def _dt(d: date, hour: int, minute: int, offset: str) -> str:
     return f"{d.isoformat()}T{hour:02d}:{minute:02d}:00{offset}"
-
-
-def _this_friday(today: date) -> date:
-    days_ahead = (4 - today.weekday()) % 7
-    return today + timedelta(days=days_ahead if days_ahead > 0 else 7)
 
 
 def load_credentials(email: str):
@@ -63,49 +62,15 @@ def load_credentials(email: str):
     return creds
 
 
-def insert_event(service, body: dict) -> str:
+def insert_event(service, summary: str, start_dt: str, end_dt: str) -> str:
+    body = {
+        "summary": summary,
+        "start": {"dateTime": start_dt},
+        "end": {"dateTime": end_dt},
+        "status": "confirmed",
+    }
     result = service.events().insert(calendarId="primary", body=body).execute()
     return result["id"]
-
-
-def import_event(service, body: dict) -> str:
-    """Use events.import to create an event with an external organizer (needed for RSVP test)."""
-    result = service.events().import_(calendarId="primary", body=body).execute()
-    return result["id"]
-
-
-def build_regular_event(summary: str, start_dt: str, end_dt: str) -> dict:
-    return {
-        "summary": summary,
-        "start": {"dateTime": start_dt},
-        "end": {"dateTime": end_dt},
-        "status": "confirmed",
-    }
-
-
-def build_rsvp_event(summary: str, start_dt: str, end_dt: str, user_email: str) -> dict:
-    """
-    Build an event that passes all three checks in _rsvp_event_impl:
-      1. attendees list is non-empty
-      2. organizer.self is False  (external organizer)
-      3. user appears in attendees with self=True
-
-    events.import_ allows setting an external organizer email so the
-    authenticated user is NOT flagged as organizer.self = True.
-    """
-    fake_organizer = "all-hands-organizer@company-internal.com"
-    return {
-        "summary": summary,
-        "start": {"dateTime": start_dt},
-        "end": {"dateTime": end_dt},
-        "iCalUID": f"{uuid.uuid4()}@company-internal.com",
-        "status": "confirmed",
-        "organizer": {"email": fake_organizer},
-        "attendees": [
-            {"email": fake_organizer, "responseStatus": "accepted", "organizer": True},
-            {"email": user_email, "responseStatus": "needsAction"},
-        ],
-    }
 
 
 def main():
@@ -123,23 +88,40 @@ def main():
         sys.exit(1)
 
     offset = _get_local_offset_str()
+
+    # Week of Jun 1–5, 2026 — derive from today so the script stays correct
+    # regardless of when it's run during that week.
     today = datetime.now().date()
-    tomorrow = today + timedelta(days=1)
-    friday = _this_friday(today)
+    # Find Monday of the current week
+    monday = today - timedelta(days=today.weekday())
+    tuesday   = monday + timedelta(days=1)
+    wednesday = monday + timedelta(days=2)
+    thursday  = monday + timedelta(days=3)
+    friday    = monday + timedelta(days=4)
 
     events = [
-        ("insert", "Team Standup",     _dt(today,    9,  0, offset), _dt(today,    9, 30, offset), "B1, B4"),
-        ("insert", "Client Review",    _dt(today,   14,  0, offset), _dt(today,   15,  0, offset), "B1, B7"),
-        ("insert", "1:1 with Manager", _dt(today,   17, 30, offset), _dt(today,   18,  0, offset), "B1"),
-        ("insert", "Sprint Planning",  _dt(tomorrow,10,  0, offset), _dt(tomorrow,11,  0, offset), "B2"),
-        ("rsvp",   "Friday All-Hands", _dt(friday,  15,  0, offset), _dt(friday,  16,  0, offset), "B9 (RSVP invitation)"),
+        # Mon Jun 1
+        ("Team Standup",                   _dt(monday,    9,  0, offset), _dt(monday,    10,  0, offset), "B1, B3"),
+        ("Research Meeting",               _dt(monday,   14,  0, offset), _dt(monday,    15,  0, offset), "B1, B3"),
+        # Tue Jun 2
+        ("Project Review",                 _dt(tuesday,  10,  0, offset), _dt(tuesday,   11,  0, offset), "B1, B3"),
+        ("Student Advising",               _dt(tuesday,  15,  0, offset), _dt(tuesday,   16,  0, offset), "B1"),
+        # Wed Jun 3
+        ("Faculty Meeting",                _dt(wednesday, 9,  0, offset), _dt(wednesday, 10, 30, offset), "B1"),
+        ("PhD Progress Review",            _dt(wednesday,14,  0, offset), _dt(wednesday, 15,  0, offset), "B1"),
+        # Thu Jun 4
+        ("Industry Collaboration Meeting", _dt(thursday, 11,  0, offset), _dt(thursday,  12,  0, offset), "B1, B3"),
+        ("Lab Weekly Meeting",             _dt(thursday, 15,  0, offset), _dt(thursday,  16,  0, offset), "B1"),
+        # Fri Jun 5
+        ("Grant Proposal Discussion",      _dt(friday,    9,  0, offset), _dt(friday,    10,  0, offset), "B1, B2, B3"),
+        ("Research Seminar",               _dt(friday,   15,  0, offset), _dt(friday,    16,  0, offset), "B1, B2"),
     ]
 
     if args.dry_run:
         print(f"DRY RUN — would create {len(events)} events for {args.email} (offset {offset}):\n")
-        for kind, name, start, end, covers in events:
-            tag = "[RSVP/import]" if kind == "rsvp" else "[insert]    "
-            print(f"  {tag}  {name:22s}  {start}  →  {end}    covers: {covers}")
+        for name, start, end, covers in events:
+            print(f"  {name:35s}  {start}  →  {end}    covers: {covers}")
+        print(f"\nMonday = {monday}  (week of Jun 1–5)")
         return
 
     try:
@@ -152,20 +134,13 @@ def main():
     creds = load_credentials(args.email)
     service = build("calendar", "v3", credentials=creds)
 
-    print(f"Creating {len(events)} seed events (offset {offset})...\n")
-    for kind, name, start, end, covers in events:
-        if kind == "rsvp":
-            body = build_rsvp_event(name, start, end, args.email)
-            event_id = import_event(service, body)
-            print(f"  OK  [RSVP/import]  {name:22s}  id={event_id}  covers={covers}")
-        else:
-            body = build_regular_event(name, start, end)
-            event_id = insert_event(service, body)
-            print(f"  OK  [insert]       {name:22s}  id={event_id}  covers={covers}")
+    print(f"Creating {len(events)} seed events (week of {monday}, offset {offset})...\n")
+    for name, start, end, covers in events:
+        event_id = insert_event(service, name, start, end)
+        print(f"  OK  {name:35s}  id={event_id}  covers={covers}")
 
-    print(f"\nDone. {len(events)} events created.")
-    print("Friday All-Hands was imported with an external organizer so RSVP (B9) works.")
-    print("Team Lunch (B5, B6) is created during the test itself — no seeding needed.")
+    print(f"\nDone. {len(events)} events created for Mon {monday} – Fri {friday}.")
+    print("Team Lunch (B2) will be created by the agent during the test — no seeding needed.")
 
 
 if __name__ == "__main__":
