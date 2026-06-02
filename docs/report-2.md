@@ -705,77 +705,135 @@ The `messages` field uses the `add_messages` reducer, which appends new messages
 
 ## 7. Test Cases
 
-The following test cases are designed to validate the functional requirements of both agents and the shared ReAct infrastructure. They require a live Google Workspace account with valid OAuth credentials.
+The following test cases validate the functional requirements of both agents against the streamlined test specification. Testing requires a live Google Workspace account with valid OAuth credentials and pre-seeded test data.
 
-### Set A — Refund Email Agent
+### 7.1 Test Data Generation
 
-| # | Function | Test Query / Trigger | Expected Behavior |
+Test data is seeded into the live Google Workspace account using standalone Python scripts in the `scripts/` directory. These scripts use the Google API Python client directly (not workspace-cli or MCP) and authenticate via pre-cached OAuth credentials stored at `~/.google_workspace_mcp/credentials/`.
+
+**Setup procedure:**
+
+```bash
+# One-time OAuth credential setup
+python3 scripts/reauth_google.py --secrets ~/Downloads/client_secret_*.json
+
+# Seed calendar events (10 events, Mon–Fri Jun 1–5 2026)
+python3 scripts/seed_calendar_events.py --email $WORKSPACE_USER_EMAIL
+
+# Seed test emails (8 emails, 2 per category)
+python3 scripts/seed_test_emails.py --email $WORKSPACE_USER_EMAIL
+```
+
+All scripts support `--dry-run` to preview actions without mutating data. Cleanup scripts (`clear_seed_calendar.py`, `clear_test_emails.py`) delete only previously seeded data, making the workflow idempotent: clear then re-seed produces a clean test environment with no duplicates.
+
+### 7.2 Calendar Agent Test Cases
+
+The Calendar Agent is validated with 3 test prompts that cover event retrieval, event creation, and free-slot discovery. All prompts are executed against a calendar pre-populated with 10 events spanning Mon Jun 1 – Fri Jun 5, 2026.
+
+**Pre-seeded Calendar Events (Table 1):**
+
+| Date | Time | Event | Covers Test(s) |
 |---|---|---|---|
-| 1 | Gmail Search Tool | Auto mode launch (`run_auto_refund_processing`) | `search_gmail_messages` called with `query="refund OR return is:unread"`; returns list of matching message IDs |
-| 2 | Batch Email Fetch | 3+ unread refund emails in inbox | Agent uses `get_gmail_messages_content_batch` (not individual calls); all messages fetched in ≤ 1 MCP round-trip |
-| 3 | Intent Classification — REFUND_REQUEST | Email subject: "I need a refund for my order" | Agent classifies as `REFUND_REQUEST`; composes approval reply with 3–5 day processing info |
-| 4 | Intent Classification — RETURN_REQUEST | Email body: "I'd like to return the item I received" | Agent classifies as `RETURN_REQUEST`; composes return instructions with prepaid label steps |
-| 5 | Intent Classification — COMPLAINT | Email body: "This is completely unacceptable service" | Agent classifies as `COMPLAINT`; sends empathetic acknowledgement with 24hr follow-up promise |
-| 6 | Intent Classification — OTHER | Email subject: "Special offer just for you!" | Agent classifies as `OTHER`; no `send_gmail_message` or `create_gmail_draft` call is made |
-| 7 | Threaded Reply | Any classified email with `thread_id` | `send_gmail_message` called with the original `thread_id`; reply appears in same thread, not a new conversation |
-| 8 | Draft on Uncertainty | Email with ambiguous intent (e.g. mixed refund + complaint) | Agent calls `create_gmail_draft` instead of `send_gmail_message`; draft saved for human review |
-| 9 | Multi-step ReAct Loop | Inbox contains 3 actionable emails | Agent completes search → read → classify → reply cycle for all 3 emails before producing final summary; `should_continue` routes back to `agent_node` between each email |
-| 10 | Summary Report | Auto mode completes full workflow | Final `AIMessage` contains structured summary: email count, per-email classification and action taken, skipped count |
-| 11 | Thread Read | "Show me the full thread for the last email I replied to" (interactive mode) | Agent calls `get_gmail_thread` with correct `thread_id`; returns full conversation history in human-readable form |
+| Mon Jun 1 | 09:00–10:00 | Team Standup | B1, B3 |
+| Mon Jun 1 | 14:00–15:00 | Research Meeting | B1, B3 |
+| Tue Jun 2 | 10:00–11:00 | Project Review | B1, B3 |
+| Tue Jun 2 | 15:00–16:00 | Student Advising | B1 |
+| Wed Jun 3 | 09:00–10:30 | Faculty Meeting | B1 |
+| Wed Jun 3 | 14:00–15:00 | PhD Progress Review | B1 |
+| Thu Jun 4 | 11:00–12:00 | Industry Collaboration Meeting | B1, B3 |
+| Thu Jun 4 | 15:00–16:00 | Lab Weekly Meeting | B1 |
+| Fri Jun 5 | 09:00–10:00 | Grant Proposal Discussion | B1, B2, B3 |
+| Fri Jun 5 | 15:00–16:00 | Research Seminar | B1, B2 |
 
-### Set B — Calendar Agent
+**Test Prompt B1 — Event Retrieval:**
 
-| # | Function | Test Query | Expected Behavior |
-|---|---|---|---|
-| 1 | CLI Today Events | What's on my calendar today? | Agent calls `cli_today_events`; tool executes `workspace-cli call list_calendar_events` with today's UTC ISO range; returns events without an MCP roundtrip |
-| 2 | CLI List Events | Show me my events for the next 7 days | Agent calls `cli_list_events` with `time_min=now`, `time_max=+7d`; events returned in chronological order via `singleEvents=true` |
-| 3 | CLI List Calendars | What calendars do I have? | Agent calls `cli_list_calendars`; returns all calendar names, IDs, access roles, and colors |
-| 4 | CLI Get Event | Get the details for the Team Standup event | Agent calls `cli_get_event` with the event ID from a prior list call; returns full event metadata including attendees and location |
-| 5 | MCP Create Event | Schedule a team lunch next Friday at noon for 1 hour | Agent calls MCP `create_calendar_event` (not CLI); event created with correct `summary`, `start`, `end`; confirmation shown to user |
-| 6 | MCP Update Event | Change the team lunch to 1:30 PM | Agent calls MCP `update_calendar_event` with correct `eventId` and updated start/end; prompts user to confirm before executing |
-| 7 | MCP Delete Event — Confirmation Guard | Delete the Client Review meeting | Agent asks for explicit confirmation before calling MCP `delete_calendar_event`; cancels if user says no |
-| 8 | MCP Suggest Meeting Time | Find a free 30-minute slot for a call with john@example.com this week | Agent calls MCP `suggest_meeting_time` with correct `attendees` and `duration`; returns 2–3 available time slots |
-| 9 | MCP RSVP | Accept the invitation for the Friday all-hands | Agent calls MCP `respond_to_calendar_event` with `response="accepted"` and correct `eventId`; confirms RSVP sent |
-| 10 | Dual Tool Strategy | "What's on today?" then "Create a 2 PM meeting tomorrow" | First query → `cli_today_events` (CLI path); second query → `create_calendar_event` (MCP path); agent selects correct surface for each task type |
-| 11 | Demo Mode | Type `demo` in interactive prompt | `run_demo()` executes all 3 pre-written queries (`list calendars`, `today's events`, `next 7 days`) sequentially; all three produce valid non-empty responses |
+| Field | Value |
+|---|---|
+| **Prompt** | "What's on my calendar?" |
+| **Expected Behavior** | Agent retrieves all upcoming events; summarizes events by date and time; does not create or modify any calendar entries |
+| **Expected Output** | Chronological list of all 10 seeded events with dates and times |
 
-### Seed Data Coverage
+**Test Prompt B2 — Event Creation:**
 
-#### Email Seed (Gmail Inbox — Refund Agent)
+| Field | Value |
+|---|---|
+| **Prompt** | "Schedule a team lunch for the coming Friday at noon for 1 hour." |
+| **Expected Behavior** | Agent checks calendar availability; creates a new event titled "Team Lunch" on Friday 12:00–13:00; confirms successful creation |
+| **Verification** | New "Team Lunch" event appears on Friday between existing events (no conflict with Grant Proposal Discussion at 09:00 or Research Seminar at 15:00) |
 
-| Message ID (mock) | Sender | Subject | Classification | Covers Test(s) |
+**Test Prompt B3 — Free Slot Discovery:**
+
+| Field | Value |
+|---|---|
+| **Prompt** | "Find a free 30-minute slot for a call with john@example.com this week." |
+| **Expected Behavior** | Agent reads existing calendar; identifies available 30-minute windows; proposes one or more candidate slots |
+| **Valid Answers** | Monday 10:00–10:30, Monday 10:30–11:00, Tuesday 11:00–11:30, Thursday 13:00–13:30, or any other gap not overlapping seeded events |
+
+**Calendar Agent Success Criteria:**
+
+- Correct retrieval of all existing events
+- Correct event creation with no scheduling conflicts
+- Accurate free-time discovery (proposed slots do not overlap existing events)
+- No runtime errors during execution
+
+### 7.3 Refund Email Agent Test Cases
+
+The Refund Email Agent is validated by processing 8 pre-seeded test emails — 2 per classification category. The agent is invoked with the prompt "Process all refund emails" and must read, classify, and respond to each email autonomously.
+
+**Pre-seeded Test Emails (Table 2):**
+
+| From | Subject | Category | Expected Action | Covers Test(s) |
 |---|---|---|---|---|
-| msg_refund_001 | alice@customer.com | "I need a refund for my order" | REFUND_REQUEST | A3, A7 |
-| msg_return_001 | bob@customer.com | "Return request for recent purchase" | RETURN_REQUEST | A4, A7 |
-| msg_complaint_001 | carol@customer.com | "Terrible experience — still waiting" | COMPLAINT | A5, A7 |
-| msg_promo_001 | promo@newsletter.com | "Exclusive deal just for you!" | OTHER | A6 |
-| msg_ambiguous_001 | dave@customer.com | "Refund? Or maybe store credit?" | AMBIGUOUS | A8 |
-| msg_thread_001 | eve@customer.com | "Follow-up on my last refund request" | REFUND_REQUEST | A9, A11 |
+| alice@customer.com | "I need a refund for my order" | REFUND_REQUEST | Send refund acknowledgement reply | A1 |
+| frank@customer.com | "Request refund for damaged item" | REFUND_REQUEST | Send refund acknowledgement reply | A1 |
+| bob@customer.com | "Return request for recent purchase" | RETURN_REQUEST | Send return instructions reply | A2 |
+| grace@customer.com | "I want to return my order" | RETURN_REQUEST | Send return instructions reply | A2 |
+| carol@customer.com | "Terrible experience — still waiting" | COMPLAINT | Send apology and escalation reply | A3 |
+| henry@customer.com | "Unacceptable delivery service" | COMPLAINT | Send apology and escalation reply | A3 |
+| promo@newsletter.com | "Exclusive deal just for you!" | OTHER | Skip — no reply sent | A4 |
+| deals@offers.com | "Your weekly offers inside" | OTHER | Skip — no reply sent | A4 |
 
-#### Calendar Seed (Google Calendar — Calendar Agent)
+**Expected Processing Behavior:**
 
-| Event Name | Calendar | Date/Time | Status | Covers Test(s) |
-|---|---|---|---|---|
-| Team Standup | primary | Today 9:00–9:30 AM | confirmed | B1, B4 |
-| Client Review | primary | Today 2:00–3:00 PM | confirmed | B1, B7 |
-| 1:1 with Manager | primary | Today 5:30–6:00 PM | confirmed | B1 |
-| Sprint Planning | primary | Tomorrow 10:00–11:00 AM | confirmed | B2 |
-| Friday All-Hands | primary | This Friday 3:00–4:00 PM | needs RSVP | B9 |
-| Team Lunch *(created in test)* | primary | Next Friday 12:00–1:00 PM | — | B5, B6 |
+| Category | Count | Agent Action |
+|---|---|---|
+| REFUND_REQUEST | 2 | Classify as refund request; generate acknowledgement; send reply |
+| RETURN_REQUEST | 2 | Classify as return request; send return instructions; send reply |
+| COMPLAINT | 2 | Classify as complaint; send apology and escalation response |
+| OTHER | 2 | Classify as other; no automated response; mark as informational |
+| **Total Processed** | **8** | |
+| **Replies Sent** | **6** | (REFUND_REQUEST + RETURN_REQUEST + COMPLAINT) |
+| **Skipped** | **2** | (OTHER — no reply sent) |
 
-Tests B8, B10, B11 require no pre-seeded event — they use live free/busy data and the demo mode workflow.
+**Expected Evaluation Summary:**
 
-### Shared Behaviour Tests
+```
+Processed 8 emails
+REFUND_REQUEST: 2
+RETURN_REQUEST: 2
+COMPLAINT: 2
+OTHER: 2
+Replies Sent: 6
+Skipped: 2
+```
 
-These apply to both agents and verify the core ReAct infrastructure.
+**Refund Email Agent Success Criteria:**
 
-| # | Function | Trigger | Expected Behavior |
-|---|---|---|---|
-| S1 | Env Var Validation | Run agent with `OPENAI_API_KEY` unset | `_print_setup_guide()` called; process exits with readable setup instructions, no traceback |
-| S2 | MCP stdio Transport | Normal startup | `MultiServerMCPClient` spawns `workspace-mcp` subprocess; `transport: stdio` confirmed (no HTTP port opened) |
-| S3 | Tool Filter | `build_agent()` called | Only the agent's designated tool subset is bound to the LLM (Gmail-only for Refund Agent; Calendar + CLI for Calendar Agent) |
-| S4 | ReAct Loop Termination | Any multi-tool query | `should_continue` returns `END` only after the LLM emits an `AIMessage` with empty `tool_calls`; never terminates mid-sequence |
-| S5 | CLI Timeout Guard | `_run_cli` called with a hanging subprocess | `subprocess.run` raises `TimeoutExpired` at 15 s; tool returns error string; agent recovers and reports failure to user |
+- 100% classification accuracy across all 4 categories
+- All actionable emails (REFUND_REQUEST, RETURN_REQUEST, COMPLAINT) receive appropriate replies
+- OTHER emails are correctly skipped — no reply sent
+- Summary statistics match expected counts (8 processed, 6 replied, 2 skipped)
+- No duplicate responses
+
+### 7.4 Overall Acceptance Criteria
+
+The system passes testing if:
+
+1. Calendar Agent correctly performs event retrieval, event scheduling, and free-slot discovery across all 3 test prompts.
+2. Refund Email Agent correctly classifies all 8 test emails into the expected categories.
+3. Refund Email Agent sends appropriate responses for all 6 actionable emails and skips the 2 OTHER emails.
+4. Summary reports from both agents match expected results.
+5. No runtime errors occur during execution.
 
 > **Note:** Detailed test results are provided in Appendix A (attached separately).
 
