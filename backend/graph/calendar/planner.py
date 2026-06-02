@@ -55,7 +55,7 @@ Write/Scheduling (available via MCP when workspace-mcp is running):
 ## Guidelines
 - For read-only requests (what's on my calendar?, list events in a range, when is X?), use the CLI tools.
 - For write requests (schedule a meeting, update or cancel an event), use manage_event via MCP.
-- For free-slot requests ("find a free slot", "when am I free"), use query_freebusy on the primary calendar, then reason over the busy periods to propose open slots. If query_freebusy is not available, fall back to get_events / list_events for the requested time range, then identify gaps between the returned events to suggest free slots.
+- For free-slot requests ("find a free slot for a call with X", "when am I free"), query YOUR OWN calendar only — always use calendar_id="primary" or your own email. Never query another person's calendar. Use query_freebusy on the primary calendar, then reason over the busy periods to propose open slots. If query_freebusy is not available, fall back to list_events for the requested time range, then identify gaps between the returned events to suggest free slots. The other person's name or email is only context for labelling the proposed slot — do not attempt to fetch their calendar.
 - For RSVP requests (accept or decline an invitation), use manage_event with action="rsvp".
 - For new event creation, call manage_event with action="create" directly when the user provides a title, date, start time, and duration or end time.
 - Always include the timezone in start_time / end_time (format shown above). If the user omits timezone, use {timezone_name}.

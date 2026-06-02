@@ -81,13 +81,20 @@ def main():
         help="Authenticated Gmail address (default: $WORKSPACE_USER_EMAIL)",
     )
     parser.add_argument("--dry-run", action="store_true", help="Print plan without creating")
+    parser.add_argument(
+        "--offset",
+        default=None,
+        metavar="±HH:MM",
+        help="Timezone offset for event times, e.g. +07:00 for ICT (default: system local)",
+    )
     args = parser.parse_args()
 
     if not args.email:
         print("ERROR: provide --email or set WORKSPACE_USER_EMAIL", file=sys.stderr)
         sys.exit(1)
 
-    offset = _get_local_offset_str()
+    offset = args.offset if args.offset else _get_local_offset_str()
+    print(f"Using timezone offset: {offset}")
 
     # Week of Jun 1–5, 2026 — derive from today so the script stays correct
     # regardless of when it's run during that week.
