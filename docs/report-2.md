@@ -1,13 +1,12 @@
-# Report 2 — AI Workspace Agent Suite
+# Project 2 Report: AI Workspace Agent Suite
 
-| Field | Value |
-|---|---|
-| **Title** | AI Workspace Agent Suite: Autonomous Google Workspace Agents Using ReAct, LangGraph, and MCP |
-| **Course** | LLM Application Development |
-| **Student Name** | *(fill in)* |
-| **Student ID** | *(fill in)* |
-| **Date** | May 2026 |
-| **Institution** | National Taiwan University of Science and Technology (NTUST) |
+
+**Course**: Large Language Model and Applications
+**Group Member**:
+- Ahmad Rifqi Fadhlurrahman (M11402804)
+- I Putu Krisna Erlangga (M11402802)
+**Date**: June 2026
+**University**: National Taiwan University of Science and Technology (NTUST)
 
 ---
 

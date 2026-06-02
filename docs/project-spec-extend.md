@@ -156,7 +156,7 @@ These tools are loaded from the running `workspace-mcp` server via `mcp_client.g
 
 ### 5.3 workspace-cli Bash Tools — Calendar Agent Only
 
-These are Python `@tool`-decorated functions that call `workspace-cli` as a local subprocess. They parse the structured JSON output from the CLI and return it to the agent. Used for fast, low-overhead calendar reads.
+These are Python `@tool`-decorated functions that call `workspace-cli` as a    subprocess. They parse the structured JSON output from the CLI and return it to the agent. Used for fast, low-overhead calendar reads.
 
 | Tool Name | CLI Command Executed | Use Case |
 |---|---|---|

@@ -1,13 +1,12 @@
-# Report 1 — Intelligent Customer Service Agent
+# Project 1 Report: Intelligent Customer Service Agent
 
-| Field | Value |
-|-------|-------|
-| **Title** | Intelligent Customer Service Agent using ReAct + LangGraph |
-| **Course** | LLM Application Development |
-| **Student Name** | *(placeholder)* |
-| **Student ID** | *(placeholder)* |
-| **Date** | May 2026 |
-| **Institution** | National Taiwan University of Science and Technology (NTUST) |
+
+**Course**: Large Language Model and Applications
+**Group Member**:
+- Ahmad Rifqi Fadhlurrahman (M11402804)
+- I Putu Krisna Erlangga (M11402802)
+**Date**: June 2026
+**University**: National Taiwan University of Science and Technology (NTUST)
 
 ---
 
